@@ -39,8 +39,8 @@ function esc(s) {
 }
 
 function settings() {
-  try { return JSON.parse(localStorage.getItem('cgm_settings')) || { name1:'Brian', name2:'Sarah', family:'Guerra' }; }
-  catch { return { name1:'Brian', name2:'Sarah', family:'Guerra' }; }
+  try { return JSON.parse(localStorage.getItem('cgm_settings')) || { name1:'Brian', name2:'Lindsay', family:'Guerra' }; }
+  catch { return { name1:'Brian', name2:'Lindsay', family:'Guerra' }; }
 }
 function saveSettings(s) { localStorage.setItem('cgm_settings', JSON.stringify(s)); }
 

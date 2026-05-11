@@ -1,7 +1,7 @@
 # Casa GM
 
 > **"Home, managed."** — A family hub PWA for the Guerra family.
-> Named after **G**rant and **M**iles. Built for Brian (brian@brianguerra.com) and Sarah (lbofman@gmail.com).
+> Named after **G**rant and **M**iles. Built for Brian (brian@brianguerra.com) and Lindsay (lbofman@gmail.com).
 
 ---
 
@@ -136,7 +136,7 @@ const ALLOWED_EMAILS = ['brian@brianguerra.com', 'lbofman@gmail.com'];
 
 ## How real-time sync works
 
-After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for `postgres_changes` on all three tables. When Sarah adds a reminder on her phone, Brian's phone receives the change and re-renders the current section automatically. No polling, no refresh needed.
+After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for `postgres_changes` on all three tables. When Lindsay adds a reminder on her phone, Brian's phone receives the change and re-renders the current section automatically. No polling, no refresh needed.
 
 ---
 
@@ -161,7 +161,7 @@ After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for
 
 **Person color coding in calendar:**
 - Brian (me): navy `#1a2e5a`
-- Sarah (partner): purple `#7c3aed`
+- Lindsay (partner): purple `#7c3aed`
 - Family: green `#10b981`
 
 ---
@@ -170,7 +170,7 @@ After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for
 
 User-configurable settings (stored in `localStorage` per device, not synced):
 - `name1` — Brian's display name (default: "Brian")
-- `name2` — Sarah's display name (default: "Sarah")
+- `name2` — Lindsay's display name (default: "Lindsay")
 - `family` — Family name shown in header (default: "Guerra")
 
 Editable in More → Settings.
