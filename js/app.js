@@ -595,12 +595,6 @@ const More = {
             <div class="set-value">${esc(s.name1)} &amp; ${esc(s.name2)}</div>
             <div class="set-chevron">›</div>
           </div>
-          <div class="set-item" onclick="More.editFamilyName()">
-            <div class="set-icon">🏠</div>
-            <div class="set-label">Family Name</div>
-            <div class="set-value">Casa ${esc(s.family)}</div>
-            <div class="set-chevron">›</div>
-          </div>
           <div class="set-item" onclick="More.manageFaceId()">
             <div class="set-icon">🔐</div>
             <div class="set-label">Face ID</div>
@@ -690,24 +684,6 @@ const More = {
     s.name2 = document.getElementById('s-n2').value.trim() || s.name2;
     saveSettings(s); Modal.hide(); this.render();
   },
-  editFamilyName() {
-    const s = settings();
-    Modal.show({
-      title: 'Family Name',
-      body: `
-        <div class="fg">
-          <label class="fl">Family Name</label>
-          <input class="fi" id="s-fam" value="${esc(s.family)}" />
-          <div class="hint mt4">Appears as "Casa [Name]" throughout the app.</div>
-        </div>
-        <button class="btn-save" onclick="More._saveFamilyName()">Save</button>`
-    });
-  },
-  _saveFamilyName() {
-    const s = settings();
-    s.family = document.getElementById('s-fam').value.trim() || s.family;
-    saveSettings(s); Modal.hide(); this.render(); Home.render();
-  }
 };
 
 // ── App Controller ─────────────────────────────────────────────────
