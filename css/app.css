@@ -57,8 +57,7 @@ a { text-decoration: none; color: inherit; }
 
 /* ===== App Shell ===== */
 #app {
-  height: 100%;
-  height: 100dvh;
+  height: var(--vh, 100vh);
 }
 
 #main-content {
@@ -345,6 +344,8 @@ a { text-decoration: none; color: inherit; }
   border-top: 1px solid rgba(0,0,0,.08);
   padding-bottom: var(--safe-bot);
   display: flex;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 .nav-item {
   flex: 1;

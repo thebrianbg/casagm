@@ -152,10 +152,10 @@ const Auth = {
         this._userId = session.user.id;
         this._firstSignIn = (event === 'SIGNED_IN');
         this._hide();
-        await DB.load();
+        App.start();          // show home immediately — no blank wait
+        await DB.load();      // load data in background
         DB.subscribe();
-        App.start();
-        // Offer Face ID setup after first magic link sign-in
+        Home.render();        // re-render home with real data
         if (this._firstSignIn && await Biometric.available() && !Biometric.isRegistered()) {
           setTimeout(() => this._offerFaceId(), 1200);
         }

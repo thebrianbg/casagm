@@ -696,6 +696,13 @@ const App = {
 
   // Called on DOMContentLoaded — safe before auth
   setup() {
+    // Set exact viewport height via JS — bypasses all iOS CSS height quirks
+    const setVh = () => {
+      document.documentElement.style.setProperty('--vh', window.innerHeight + 'px');
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
         .then(reg => reg.update())
