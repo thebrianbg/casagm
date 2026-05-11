@@ -349,14 +349,14 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 9px 4px;
+  justify-content: flex-end;
+  padding: 6px 4px 10px;
   gap: 3px;
   background: none;
   border: none;
   color: var(--txt3);
   transition: color var(--t);
-  min-height: 56px;
+  min-height: 50px;
 }
 .nav-item.active { color: var(--navy); }
 .nav-item svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
