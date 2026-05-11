@@ -1,4 +1,4 @@
-const CACHE = 'casagm-v11';
+const CACHE = 'casagm-v12';
 const ASSETS = [
   '/',
   '/index.html',
