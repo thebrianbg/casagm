@@ -66,95 +66,112 @@ const Modal = {
 // ── Home ───────────────────────────────────────────────────────────
 const Home = {
   render() {
-    const s   = settings();
-    const t   = today();
+    const s    = settings();
+    const t    = today();
+    const now  = new Date();
     const evts = DB.list('events');
     const rems = DB.list('reminders');
-
-    const todayEvts   = evts.filter(e => e.date === t);
-    const overdueRems = rems.filter(r => !r.done && isOverdue(r.due_date));
-    const todayRems   = rems.filter(r => !r.done && r.due_date === t);
-    const upcoming    = evts.filter(e => e.date > t).sort((a,b) => a.date.localeCompare(b.date)).slice(0,3);
-    const openRems    = rems.filter(r => !r.done && (!r.due_date || r.due_date >= t))
-                            .sort((a,b) => (a.due_date||'9999').localeCompare(b.due_date||'9999')).slice(0,3);
-
-    const now  = new Date();
     const pName = p => p === 'me' ? s.name1 : p === 'partner' ? s.name2 : 'Family';
 
+    // End of this week (Sunday) and end of this month
+    const weekEnd = (() => {
+      const d = new Date(now);
+      const diff = d.getDay() === 0 ? 0 : 7 - d.getDay();
+      d.setDate(d.getDate() + diff);
+      return d.toISOString().split('T')[0];
+    })();
+    const afterWeek = (() => {
+      const d = new Date(weekEnd + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    })();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      .toISOString().split('T')[0];
+    const tomorrow = (() => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    })();
+
+    const mkEvt = e => ({
+      date: e.date, time: e.time || '',
+      title: e.title,
+      sub: [e.time ? fmtTime(e.time) : '', pName(e.person), e.location].filter(Boolean).join(' · '),
+      dot: personColor(e.person), overdue: false,
+      go: "App.go('calendar')"
+    });
+    const mkRem = r => ({
+      date: r.due_date || '9999-12-31', time: '',
+      title: r.title,
+      sub: [r.due_date ? fmtDate(r.due_date) : 'No due date',
+            r.assignee && r.assignee !== 'both' ? pName(r.assignee) : ''].filter(Boolean).join(' · '),
+      dot: isOverdue(r.due_date) ? '#ef4444' : '#7c3aed',
+      overdue: isOverdue(r.due_date),
+      go: "App.go('reminders')"
+    });
+
+    const sort = arr => arr.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+    const todayItems = sort([
+      ...evts.filter(e => e.date === t).map(mkEvt),
+      ...rems.filter(r => !r.done && r.due_date <= t && r.due_date).map(mkRem)
+    ]);
+    const weekItems = sort([
+      ...evts.filter(e => e.date >= tomorrow && e.date <= weekEnd).map(mkEvt),
+      ...rems.filter(r => !r.done && r.due_date >= tomorrow && r.due_date <= weekEnd).map(mkRem)
+    ]);
+    const monthItems = sort([
+      ...evts.filter(e => e.date >= afterWeek && e.date <= monthEnd).map(mkEvt),
+      ...rems.filter(r => !r.done && r.due_date >= afterWeek && r.due_date <= monthEnd).map(mkRem)
+    ]);
+
+    const row = item => `
+      <div class="feed-item" onclick="${item.go}">
+        <div class="feed-dot${item.overdue ? ' feed-dot-overdue' : ''}" style="background:${item.dot}"></div>
+        <div class="feed-body">
+          <div class="feed-title">${esc(item.title)}</div>
+          <div class="feed-sub">${esc(item.sub)}${item.overdue ? ' &middot; <span class="overdue-tag">Overdue</span>' : ''}</div>
+        </div>
+      </div>`;
+
+    const group = (label, items) => !items.length ? '' : `
+      <div class="time-group">
+        <div class="time-label">${label}</div>
+        ${items.map(row).join('')}
+      </div>`;
+
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const allClear = !todayItems.length && !weekItems.length && !monthItems.length;
+
     document.getElementById('section-home').innerHTML = `
-      <div class="home-header">
-        <div class="home-greeting">${greet()}</div>
-        <div class="home-name">Casa ${esc(s.family)}</div>
-        <div class="home-tagline">Home, managed.</div>
-        <div class="home-date">
-          <div class="home-date-num">${now.getDate()}</div>
-          <div class="home-date-info">
-            <div class="day">${now.toLocaleDateString('en-US',{weekday:'long'})}</div>
-            <div class="month">${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</div>
-          </div>
+      <div class="home-bar">
+        <div class="home-bar-left">
+          <div class="home-bar-name">Casa ${esc(s.family)}</div>
+          <div class="home-bar-greet">${greet()}</div>
+        </div>
+        <div class="home-bar-right">
+          <div class="home-bar-date">${dateStr}</div>
+          <button class="home-gear" onclick="More.showSettings()">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            </svg>
+          </button>
         </div>
       </div>
-      <div class="section-content">
-
-        <div class="stat-grid">
-          <div class="stat-card" onclick="App.go('calendar')">
-            <div class="stat-icon">📅</div>
-            <div class="stat-value">${todayEvts.length}</div>
-            <div class="stat-label">Events today</div>
-          </div>
-          <div class="stat-card" onclick="App.go('reminders')">
-            <div class="stat-icon">${overdueRems.length ? '⚠️' : '✅'}</div>
-            <div class="stat-value">${todayRems.length + overdueRems.length}</div>
-            <div class="stat-label">${overdueRems.length ? overdueRems.length + ' overdue' : 'Due today'}</div>
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <button class="qa-btn primary" onclick="Cal.addModal()">＋ Event</button>
-          <button class="qa-btn secondary" onclick="Tasks.addModal()">＋ Reminder</button>
-        </div>
-
-        ${upcoming.length ? `
-        <div class="card">
-          <div class="card-row">
-            <div class="card-title">Upcoming Events</div>
-            <button class="see-all" onclick="App.go('calendar')">See all</button>
-          </div>
-          ${upcoming.map(e => `
-            <div class="list-item" onclick="App.go('calendar')">
-              <div class="li-icon" style="background:${personColor(e.person)}18">📅</div>
-              <div class="li-info">
-                <div class="li-title">${esc(e.title)}</div>
-                <div class="li-sub">${fmtDate(e.date)}${e.time ? ' · ' + fmtTime(e.time) : ''} · ${esc(pName(e.person))}</div>
-              </div>
-            </div>`).join('')}
-        </div>` : ''}
-
-        ${openRems.length ? `
-        <div class="card">
-          <div class="card-row">
-            <div class="card-title">Open Reminders</div>
-            <button class="see-all" onclick="App.go('reminders')">See all</button>
-          </div>
-          ${openRems.map(r => `
-            <div class="list-item" onclick="App.go('reminders')">
-              <div class="li-icon" style="background:${isOverdue(r.due_date)?'#fee2e2':'#d1fae5'}">
-                ${isOverdue(r.due_date) ? '⚠️' : '✅'}
-              </div>
-              <div class="li-info">
-                <div class="li-title">${esc(r.title)}</div>
-                <div class="li-sub">${r.due_date ? fmtDate(r.due_date) : 'No due date'}</div>
-              </div>
-            </div>`).join('')}
-        </div>` : ''}
-
-        ${!upcoming.length && !openRems.length ? `
-        <div class="empty">
-          <div class="empty-icon">🏡</div>
-          <div class="empty-title">You're all set!</div>
-          <div class="empty-sub">No upcoming events or open reminders.<br>Add some with the buttons above.</div>
-        </div>` : ''}
-
+      <div class="home-actions">
+        <button class="qa-btn primary" onclick="Cal.addModal()">＋ Event</button>
+        <button class="qa-btn secondary" onclick="Tasks.addModal()">＋ Reminder</button>
+      </div>
+      <div class="home-feed">
+        ${group('Today', todayItems)}
+        ${group('This Week', weekItems)}
+        ${group('This Month', monthItems)}
+        ${allClear ? `
+          <div class="empty">
+            <div class="empty-icon">🏡</div>
+            <div class="empty-title">All clear!</div>
+            <div class="empty-sub">Nothing on the schedule this month.<br>Tap ＋ to add an event or reminder.</div>
+          </div>` : ''}
       </div>`;
   }
 };
@@ -581,59 +598,33 @@ const Tasks = {
 
 // ── More / Settings ────────────────────────────────────────────────
 const More = {
-  render() {
+  showSettings() {
     const s = settings();
-    document.getElementById('section-more').innerHTML = `
-      <div class="section-header"><h1>More</h1></div>
-      <div class="section-content">
-
-        <div class="card">
-          <div class="card-title">Settings</div>
-          <div class="set-item" onclick="More.editMembers()">
-            <div class="set-icon">👤</div>
-            <div class="set-label">Family Members</div>
-            <div class="set-value">${esc(s.name1)} &amp; ${esc(s.name2)}</div>
-            <div class="set-chevron">›</div>
-          </div>
-          <div class="set-item" onclick="More.manageFaceId()">
-            <div class="set-icon">🔐</div>
-            <div class="set-label">Face ID</div>
-            <div class="set-value" id="fid-status">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
-            <div class="set-chevron">›</div>
-          </div>
-          <div class="set-item" onclick="Auth.signOut()">
-            <div class="set-icon">🔒</div>
-            <div class="set-label">Sign Out</div>
-            <div class="set-chevron">›</div>
-          </div>
+    Modal.show({
+      title: 'Settings',
+      body: `
+        <div class="set-item" onclick="More.editMembers()">
+          <div class="set-icon">👤</div>
+          <div class="set-label">Family Members</div>
+          <div class="set-value">${esc(s.name1)} &amp; ${esc(s.name2)}</div>
+          <div class="set-chevron">›</div>
         </div>
-
-        <div class="card-title" style="padding:0 2px">Coming Soon</div>
-        <div class="more-grid">
-          ${[
-            {e:'🛒',n:'Groceries',d:'Shared shopping lists'},
-            {e:'💰',n:'Budget',d:'Track spending together'},
-            {e:'🍽️',n:'Meal Planner',d:'Weekly meal planning'},
-            {e:'🏥',n:'Health',d:'Medical records & history'},
-            {e:'📸',n:'Photos',d:'Share family memories'},
-            {e:'🔔',n:'Notifications',d:'Reminders to your phone'},
-          ].map(x=>`
-            <div class="more-card">
-              <span class="soon-badge">Soon</span>
-              <div class="more-emoji">${x.e}</div>
-              <div class="more-card-name">${x.n}</div>
-              <div class="more-card-desc">${x.d}</div>
-            </div>`).join('')}
+        <div class="set-item" onclick="More.manageFaceId()">
+          <div class="set-icon">🔐</div>
+          <div class="set-label">Face ID</div>
+          <div class="set-value" id="fid-status">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
+          <div class="set-chevron">›</div>
         </div>
-
-        <div class="card" style="text-align:center;padding:22px">
-          <div style="font-size:28px;margin-bottom:8px">🏡</div>
-          <div style="font-weight:800;color:var(--navy);font-size:17px">Casa GM</div>
-          <div style="font-size:13px;color:var(--txt3);margin-top:3px;font-style:italic">Home, managed.</div>
-          <div style="font-size:12px;color:var(--gold);margin-top:10px;font-weight:600">For Grant &amp; Miles 💛</div>
+        <div class="set-item" onclick="Auth.signOut()">
+          <div class="set-icon">🔒</div>
+          <div class="set-label">Sign Out</div>
+          <div class="set-chevron">›</div>
         </div>
-
-      </div>`;
+        <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+          <div style="font-weight:800;color:var(--navy);font-size:16px">Casa GM</div>
+          <div style="font-size:12px;color:var(--gold);margin-top:6px;font-weight:600">For Grant &amp; Miles 💛</div>
+        </div>`
+    });
   },
   async manageFaceId() {
     const registered = Biometric.isRegistered();
@@ -726,7 +717,6 @@ const App = {
 
   _render(s) {
     ({ home: () => Home.render(), docs: () => Docs.render(),
-       calendar: () => Cal.render(), reminders: () => Tasks.render(),
-       more: () => More.render() }[s] || (() => {}))();
+       calendar: () => Cal.render(), reminders: () => Tasks.render() }[s] || (() => {}))();
   }
 };

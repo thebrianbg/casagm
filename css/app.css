@@ -111,48 +111,109 @@ a { text-decoration: none; color: inherit; }
 .header-btn:active { background: rgba(255,255,255,.28); }
 
 /* ===== Home Header ===== */
-.home-header {
-  background: linear-gradient(150deg, var(--navy-dark) 0%, var(--navy) 60%, var(--navy-light) 100%);
-  padding: calc(var(--safe-top) + 24px) 20px 24px;
+/* ===== Home Bar ===== */
+.home-bar {
+  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-shrink: 0;
+  gap: 12px;
 }
-.home-greeting {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255,255,255,.55);
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-}
-.home-name {
-  font-size: 30px;
+.home-bar-left { min-width: 0; }
+.home-bar-name {
+  font-size: 20px;
   font-weight: 800;
   color: var(--white);
-  letter-spacing: -.5px;
+  letter-spacing: -.3px;
+  line-height: 1.1;
+}
+.home-bar-greet {
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
   margin-top: 2px;
 }
-.home-tagline {
-  font-size: 13px;
-  color: var(--gold-light);
-  font-style: italic;
-  margin-top: 1px;
-}
-.home-date {
+.home-bar-right {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  margin-top: 18px;
+  flex-shrink: 0;
 }
-.home-date-num {
-  font-size: 52px;
-  font-weight: 800;
-  color: var(--white);
-  line-height: 1;
+.home-bar-date {
+  font-size: 12px;
+  color: rgba(255,255,255,.65);
+  text-align: right;
+  line-height: 1.3;
 }
-.home-date-info {
-  line-height: 1.5;
+.home-gear {
+  background: rgba(255,255,255,.12);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.8);
+  flex-shrink: 0;
+  transition: background var(--t);
 }
-.home-date-info .day { font-size: 16px; font-weight: 600; color: var(--white); }
-.home-date-info .month { font-size: 14px; color: rgba(255,255,255,.6); }
+.home-gear:active { background: rgba(255,255,255,.22); }
+.home-actions {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ===== Time Feed ===== */
+.time-group { display: flex; flex-direction: column; }
+.time-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 18px 16px 8px;
+}
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--t);
+}
+.feed-item:active { background: var(--bg); }
+.feed-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.feed-dot-overdue {
+  box-shadow: 0 0 0 3px #fee2e2;
+}
+.feed-body { flex: 1; min-width: 0; }
+.feed-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-sub {
+  font-size: 12px;
+  color: var(--txt3);
+  margin-top: 2px;
+}
+.overdue-tag { color: var(--red); font-weight: 600; }
 
 /* ===== Section Content ===== */
 .section-content {
@@ -200,31 +261,15 @@ a { text-decoration: none; color: inherit; }
   font-weight: 600;
 }
 
-/* ===== Stat Grid ===== */
-.stat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+/* ===== Home Feed ===== */
+.home-feed {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
 }
-.stat-card {
-  background: var(--card);
-  border-radius: var(--r-lg);
-  padding: 16px;
-  border: 1px solid var(--border);
-  box-shadow: var(--sh-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-  transition: transform var(--t), box-shadow var(--t);
-}
-.stat-card:active { transform: scale(.97); }
-.stat-icon { font-size: 22px; }
-.stat-value { font-size: 30px; font-weight: 800; color: var(--navy); line-height: 1; }
-.stat-label { font-size: 12px; color: var(--txt2); font-weight: 500; }
 
 /* ===== Quick Actions ===== */
-.quick-actions { display: flex; gap: 10px; }
 .qa-btn {
   flex: 1;
   border: none;
