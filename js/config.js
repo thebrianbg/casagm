@@ -4,8 +4,8 @@
 //   2. Paste your Project URL and anon key below
 //   3. Push to GitHub — Vercel will redeploy automatically
 
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_KEY = 'YOUR_ANON_PUBLIC_KEY';
+const SUPABASE_URL = 'https://pezrffldzfjimvngsobx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Shs0StpKkllEweXFKvHXAA_KihOxixI';
 
 // Only these two emails can sign in
 const ALLOWED_EMAILS = ['brian@brianguerra.com', 'lbofman@gmail.com'];
