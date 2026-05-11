@@ -693,6 +693,13 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => this.go(btn.dataset.s));
     });
+    // Re-render home when iOS restores app from background
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.cur === 'home') Home.render();
+    });
+    window.addEventListener('pageshow', e => {
+      if (e.persisted && this.cur === 'home') Home.render();
+    });
   },
 
   // Called after successful auth + DB load
@@ -702,7 +709,7 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('section-home').classList.add('active');
     document.querySelector('.nav-item[data-s="home"]').classList.add('active');
-    requestAnimationFrame(() => Home.render());
+    Home.render();
   },
 
   go(section) {
