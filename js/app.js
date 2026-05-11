@@ -601,6 +601,12 @@ const More = {
             <div class="set-value">Casa ${esc(s.family)}</div>
             <div class="set-chevron">›</div>
           </div>
+          <div class="set-item" onclick="More.manageFaceId()">
+            <div class="set-icon">🔐</div>
+            <div class="set-label">Face ID</div>
+            <div class="set-value" id="fid-status">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
+            <div class="set-chevron">›</div>
+          </div>
           <div class="set-item" onclick="Auth.signOut()">
             <div class="set-icon">🔒</div>
             <div class="set-label">Sign Out</div>
@@ -634,6 +640,33 @@ const More = {
         </div>
 
       </div>`;
+  },
+  async manageFaceId() {
+    const registered = Biometric.isRegistered();
+    const available  = await Biometric.available();
+    if (!available) {
+      Modal.show({ title: 'Face ID', body: `<p style="color:var(--txt2);font-size:15px;line-height:1.6">Face ID isn't available on this device or browser.</p>` });
+      return;
+    }
+    Modal.show({
+      title: 'Face ID',
+      body: `
+        <div style="text-align:center;padding:4px 0 8px">
+          <div style="font-size:48px;margin-bottom:14px">🔐</div>
+          <p style="color:var(--txt2);font-size:15px;line-height:1.6;margin-bottom:24px">
+            ${registered ? 'Face ID is enabled. You can disable it or re-register below.' : 'Enable Face ID to unlock Casa GM without entering a code each time.'}
+          </p>
+          ${registered
+            ? `<button class="btn-save btn-danger" onclick="More._disableFaceId()">Disable Face ID</button>
+               <button class="btn-save" style="margin-top:10px" onclick="Auth._registerFaceId()">Re-register Face ID</button>`
+            : `<button class="btn-save" onclick="Auth._registerFaceId()">Enable Face ID</button>`}
+        </div>`
+    });
+  },
+  _disableFaceId() {
+    Biometric.clear();
+    Modal.hide();
+    this.render();
   },
   editMembers() {
     const s = settings();
