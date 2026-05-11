@@ -295,7 +295,8 @@ const Auth = {
 
   async signOut() {
     Biometric.clear();
-    await sb.auth.signOut();
+    try { await sb.auth.signOut(); } catch(e) { console.error(e); }
+    this._show();
   },
 
   _showError(msg) {
