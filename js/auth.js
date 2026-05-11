@@ -168,16 +168,12 @@ const Auth = {
   async _show() {
     document.getElementById('lock-screen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
-    document.getElementById('auth-form').classList.remove('hidden');
-    document.getElementById('auth-sent').classList.add('hidden');
-    document.getElementById('auth-error').classList.add('hidden');
-    document.getElementById('auth-email').value = '';
+    this.resetForm();
 
     // Show Face ID button if registered
     const fidSection = document.getElementById('lock-fid');
     if (Biometric.isRegistered() && await Biometric.available()) {
       fidSection.classList.remove('hidden');
-      // Auto-trigger Face ID on app open
       setTimeout(() => this.unlockWithFaceId(), 400);
     } else {
       fidSection.classList.add('hidden');
@@ -212,7 +208,7 @@ const Auth = {
     }
   },
 
-  async sendLink() {
+  async sendCode() {
     const email = document.getElementById('auth-email').value.trim().toLowerCase();
     const btn   = document.getElementById('auth-btn');
     if (!email) return;
@@ -227,17 +223,48 @@ const Auth = {
 
     const { error } = await sb.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin }
+      options: { shouldCreateUser: false }
+    });
+
+    if (error && !error.message.includes('not found')) {
+      this._showError(error.message);
+      btn.textContent = 'Send Code';
+      btn.disabled    = false;
+    } else {
+      this._pendingEmail = email;
+      document.getElementById('auth-step-email').classList.add('hidden');
+      document.getElementById('auth-step-code').classList.remove('hidden');
+      document.getElementById('auth-email-display').textContent = email;
+      document.getElementById('auth-error').classList.add('hidden');
+      setTimeout(() => document.getElementById('auth-code').focus(), 100);
+    }
+  },
+
+  async verifyCode() {
+    const code  = document.getElementById('auth-code').value.trim();
+    if (!code) return;
+
+    const { error } = await sb.auth.verifyOtp({
+      email: this._pendingEmail,
+      token: code,
+      type:  'email'
     });
 
     if (error) {
-      this._showError(error.message);
-      btn.textContent = 'Send Magic Link';
-      btn.disabled    = false;
-    } else {
-      document.getElementById('auth-form').classList.add('hidden');
-      document.getElementById('auth-sent').classList.remove('hidden');
+      this._showError('Invalid code — check your email and try again.');
     }
+    // On success, onAuthStateChange fires automatically
+  },
+
+  resetForm() {
+    document.getElementById('auth-step-email').classList.remove('hidden');
+    document.getElementById('auth-step-code').classList.add('hidden');
+    document.getElementById('auth-error').classList.add('hidden');
+    document.getElementById('auth-email').value = '';
+    const codeEl = document.getElementById('auth-code');
+    if (codeEl) codeEl.value = '';
+    const btn = document.getElementById('auth-btn');
+    if (btn) { btn.textContent = 'Send Code'; btn.disabled = false; }
   },
 
   _offerFaceId() {

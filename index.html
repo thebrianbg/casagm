@@ -45,20 +45,28 @@
     </div>
 
     <div id="auth-form" class="auth-form">
-      <input type="email" id="auth-email" class="fi lock-input"
-             placeholder="your@email.com"
-             onkeydown="if(event.key==='Enter') Auth.sendLink()" />
-      <button id="auth-btn" class="btn-save lock-btn" onclick="Auth.sendLink()">
-        Send Magic Link
-      </button>
-      <div id="auth-error" class="auth-error hidden"></div>
-      <div class="auth-hint">A sign-in link will be emailed to you.<br>No password needed.</div>
-    </div>
+      <!-- Step 1: email -->
+      <div id="auth-step-email">
+        <input type="email" id="auth-email" class="fi lock-input"
+               placeholder="your@email.com"
+               onkeydown="if(event.key==='Enter') Auth.sendCode()" />
+        <button id="auth-btn" class="btn-save lock-btn" onclick="Auth.sendCode()">
+          Send Code
+        </button>
+        <div class="auth-hint">We'll email you a 6-digit code.<br>No password needed.</div>
+      </div>
 
-    <div id="auth-sent" class="auth-sent hidden">
-      <div class="auth-sent-icon">📬</div>
-      <div class="auth-sent-title">Check your email</div>
-      <div class="auth-sent-sub">Tap the link we sent you to open Casa GM. You can close this tab.</div>
+      <!-- Step 2: code entry -->
+      <div id="auth-step-code" class="hidden">
+        <div class="auth-code-label">Enter the 6-digit code sent to<br><strong id="auth-email-display"></strong></div>
+        <input type="number" id="auth-code" class="fi lock-input lock-input-code"
+               placeholder="000000" maxlength="6"
+               onkeydown="if(event.key==='Enter') Auth.verifyCode()" />
+        <button class="btn-save lock-btn" onclick="Auth.verifyCode()">Verify</button>
+        <button onclick="Auth.resetForm()" class="auth-back">← Use a different email</button>
+      </div>
+
+      <div id="auth-error" class="auth-error hidden"></div>
     </div>
   </div>
 </div>

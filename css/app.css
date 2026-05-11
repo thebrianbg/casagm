@@ -768,6 +768,31 @@ a { text-decoration: none; color: inherit; }
 .auth-sent-title { font-size: 20px; font-weight: 700; color: var(--white); }
 .auth-sent-sub { font-size: 14px; color: rgba(255,255,255,.6); line-height: 1.6; }
 
+.auth-code-label {
+  font-size: 14px;
+  color: rgba(255,255,255,.65);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.auth-code-label strong { color: var(--white); }
+.lock-input-code {
+  text-align: center;
+  font-size: 28px !important;
+  font-weight: 700;
+  letter-spacing: 8px;
+}
+.auth-back {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.4);
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 4px;
+  width: 100%;
+  text-align: center;
+}
+
 .lock-fid-btn {
   width: 100%;
   padding: 15px;
