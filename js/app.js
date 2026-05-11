@@ -596,10 +596,65 @@ const Tasks = {
   }
 };
 
+// ── Push Notifications ─────────────────────────────────────────────
+const Notifications = {
+  _supported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  },
+
+  async status() {
+    if (!this._supported()) return 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return sub ? 'subscribed' : 'unsubscribed';
+  },
+
+  async subscribe() {
+    const reg = await navigator.serviceWorker.ready;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return false;
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this._urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    const { endpoint, keys } = sub.toJSON();
+    const { error } = await sb.from('push_subscriptions').upsert({
+      user_id: (await sb.auth.getUser()).data.user.id,
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth
+    }, { onConflict: 'user_id,endpoint' });
+
+    if (error) { console.error(error); return false; }
+    return true;
+  },
+
+  async unsubscribe() {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      await sub.unsubscribe();
+    }
+  },
+
+  _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+  }
+};
+
 // ── More / Settings ────────────────────────────────────────────────
 const More = {
-  showSettings() {
+  async showSettings() {
     const s = settings();
+    const notifStatus = await Notifications.status();
+    const notifLabel = { subscribed: 'Enabled', unsubscribed: 'Not enabled', denied: 'Blocked in settings', unsupported: 'Not supported' }[notifStatus];
     Modal.show({
       title: 'Settings',
       body: `
@@ -613,6 +668,12 @@ const More = {
           <div class="set-icon">🔐</div>
           <div class="set-label">Face ID</div>
           <div class="set-value" id="fid-status">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
+          <div class="set-chevron">›</div>
+        </div>
+        <div class="set-item" onclick="More.manageNotifications()">
+          <div class="set-icon">🔔</div>
+          <div class="set-label">Notifications</div>
+          <div class="set-value" id="notif-status">${notifLabel}</div>
           <div class="set-chevron">›</div>
         </div>
         <div class="set-item" onclick="Auth.signOut()">
@@ -630,6 +691,52 @@ const More = {
           <div style="font-size:12px;color:var(--gold);margin-top:6px;font-weight:600">For Grant &amp; Miles 💛</div>
         </div>`
     });
+  },
+
+  async manageNotifications() {
+    const status = await Notifications.status();
+    if (status === 'unsupported') {
+      Modal.show({ title: 'Notifications', body: `<p style="color:var(--txt2);font-size:15px;line-height:1.6">Push notifications aren't supported on this device or browser.<br><br>Make sure the app is installed to your home screen and you're on iOS 16.4+.</p>` });
+      return;
+    }
+    if (status === 'denied') {
+      Modal.show({ title: 'Notifications', body: `<p style="color:var(--txt2);font-size:15px;line-height:1.6">Notifications are blocked. To enable them, go to <strong>Settings → Safari → [your site] → Notifications → Allow</strong>.</p>` });
+      return;
+    }
+    Modal.show({
+      title: 'Notifications',
+      body: `
+        <div style="text-align:center;padding:8px 0 16px">
+          <div style="font-size:48px;margin-bottom:14px">🔔</div>
+          <p style="color:var(--txt2);font-size:15px;line-height:1.6;margin-bottom:24px">
+            ${status === 'subscribed'
+              ? 'You\'ll get a daily notification for reminders due today or overdue.'
+              : 'Get notified each morning when you have reminders due or overdue.'}
+          </p>
+          ${status === 'subscribed'
+            ? `<button class="btn-save btn-danger" onclick="More._disableNotifications()">Turn Off Notifications</button>`
+            : `<button class="btn-save" onclick="More._enableNotifications()">Enable Notifications</button>`}
+        </div>`
+    });
+  },
+
+  async _enableNotifications() {
+    Modal.hide();
+    const ok = await Notifications.subscribe();
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:' + (ok ? '#10b981' : '#ef4444') + ';color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:9999;white-space:nowrap';
+    el.textContent = ok ? '✓ Notifications enabled' : '✗ Permission denied';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+    const statusEl = document.getElementById('notif-status');
+    if (statusEl && ok) statusEl.textContent = 'Enabled';
+  },
+
+  async _disableNotifications() {
+    await Notifications.unsubscribe();
+    Modal.hide();
+    const statusEl = document.getElementById('notif-status');
+    if (statusEl) statusEl.textContent = 'Not enabled';
   },
   async manageFaceId() {
     const registered = Biometric.isRegistered();

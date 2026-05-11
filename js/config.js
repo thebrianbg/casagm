@@ -9,3 +9,6 @@ const SUPABASE_KEY = 'sb_publishable_Shs0StpKkllEweXFKvHXAA_KihOxixI';
 
 // Only these two emails can sign in
 const ALLOWED_EMAILS = ['brian@brianguerra.com', 'lbofman@gmail.com'];
+
+// Web Push (VAPID) — public key only, safe to expose
+const VAPID_PUBLIC_KEY = 'BCcVZSSg7f5yJuQIzDCgyEH_V5BAd8YvBF1D6w7H9VRW6_eYvxjuAuR8s34nNHiqx1xXLoCbzjoRxo-6A82GLg4';

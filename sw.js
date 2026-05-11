@@ -1,4 +1,4 @@
-const CACHE = 'casagm-v10';
+const CACHE = 'casagm-v11';
 const ASSETS = [
   '/',
   '/index.html',
@@ -18,6 +18,29 @@ self.addEventListener('activate', e => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : { title: 'Casa GM', body: 'You have a reminder' };
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: [200, 100, 200],
+      data: data
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      if (list.length) return list[0].focus();
+      return clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('fetch', e => {
