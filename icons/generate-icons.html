@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Casa GM — Generate Icons</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 20px; background: #f4f5f8; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    p  { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    canvas { border-radius: 22%; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+    .btn {
+      display: block; margin-top: 8px; padding: 10px 18px;
+      background: #1a2e5a; color: #fff; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: .88; }
+    label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; display: block; }
+  </style>
+</head>
+<body>
+  <h1>🏡 Casa GM Icon Generator</h1>
+  <p>Open this file in your browser, then download the PNG icons below and place them in the <code>icons/</code> folder.</p>
+
+  <div class="row">
+    <div>
+      <label>512 × 512</label>
+      <canvas id="c512" width="512" height="512"></canvas>
+      <a id="dl512" class="btn" download="icon-512.png">Download icon-512.png</a>
+    </div>
+    <div>
+      <label>192 × 192</label>
+      <canvas id="c192" width="192" height="192" style="width:96px;height:96px"></canvas>
+      <a id="dl192" class="btn" download="icon-192.png">Download icon-192.png</a>
+    </div>
+    <div>
+      <label>180 × 180 (Apple Touch)</label>
+      <canvas id="c180" width="180" height="180" style="width:90px;height:90px"></canvas>
+      <a id="dl180" class="btn" download="apple-touch-icon.png">Download apple-touch-icon.png</a>
+    </div>
+  </div>
+
+  <script>
+    const SVG_SRC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="112" fill="#1a2e5a"/>
+      <path d="M256,118 L412,258 L412,412 L100,412 L100,258 Z" fill="#d4a843"/>
+      <path d="M216,412 L216,340 Q216,306 256,306 Q296,306 296,340 L296,412 Z" fill="#1a2e5a"/>
+      <text x="256" y="300"
+            text-anchor="middle"
+            fill="#1a2e5a"
+            font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+            font-weight="900"
+            font-size="80"
+            letter-spacing="-3">GM</text>
+    </svg>`;
+
+    function drawIcon(canvasId, linkId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx    = canvas.getContext('2d');
+      const img    = new Image();
+      const blob   = new Blob([SVG_SRC], { type: 'image/svg+xml' });
+      const url    = URL.createObjectURL(blob);
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        document.getElementById(linkId).href = canvas.toDataURL('image/png');
+      };
+      img.src = url;
+    }
+
+    drawIcon('c512', 'dl512', 512);
+    drawIcon('c192', 'dl192', 192);
+    drawIcon('c180', 'dl180', 180);
+  </script>
+</body>
+</html>

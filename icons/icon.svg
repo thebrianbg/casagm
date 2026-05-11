@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App icon background -->
+  <rect width="512" height="512" rx="112" fill="#1a2e5a"/>
+  <!-- House silhouette -->
+  <path d="M256,118 L412,258 L412,412 L100,412 L100,258 Z" fill="#d4a843"/>
+  <!-- Door cutout — arched -->
+  <path d="M216,412 L216,340 Q216,306 256,306 Q296,306 296,340 L296,412 Z" fill="#1a2e5a"/>
+  <!-- GM text in house body -->
+  <text x="256" y="300"
+        text-anchor="middle"
+        fill="#1a2e5a"
+        font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-weight="900"
+        font-size="80"
+        letter-spacing="-3">GM</text>
+</svg>
