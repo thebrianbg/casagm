@@ -283,7 +283,8 @@ const Auth = {
     Modal.hide();
     const ok = await Biometric.register(this._userId);
     if (ok) {
-      // Brief confirmation
+      const statusEl = document.getElementById('fid-status');
+      if (statusEl) statusEl.textContent = 'Enabled';
       const el = document.createElement('div');
       el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:9999';
       el.textContent = '✓ Face ID enabled';
