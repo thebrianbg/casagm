@@ -708,7 +708,7 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('section-home').classList.add('active');
     document.querySelector('.nav-item[data-s="home"]').classList.add('active');
-    Home.render();
+    requestAnimationFrame(() => Home.render());
   },
 
   go(section) {
