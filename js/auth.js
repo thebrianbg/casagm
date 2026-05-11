@@ -1,10 +1,17 @@
 /* ================================================================
    Casa GM — auth.js
-   Supabase client, DB cache + real-time sync, Auth lock screen
+   Supabase client, DB cache + real-time sync, Auth + Face ID
    ================================================================ */
 
-// ── Supabase client (global `sb` used by app.js too) ──────────────
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ── Supabase client ────────────────────────────────────────────────
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession:   true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'casagm-auth'
+  }
+});
 
 // ── DB — Supabase-backed cache with real-time sync ─────────────────
 const DB = {
@@ -63,8 +70,76 @@ const DB = {
   }
 };
 
+// ── Biometric (WebAuthn / Face ID) ─────────────────────────────────
+const Biometric = {
+  KEY: 'cgm_fid',
+
+  async available() {
+    try {
+      return !!(window.PublicKeyCredential &&
+        await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+    } catch { return false; }
+  },
+
+  isRegistered() { return !!localStorage.getItem(this.KEY); },
+
+  async register(userId) {
+    try {
+      const cred = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'Casa GM', id: window.location.hostname },
+          user: {
+            id: new TextEncoder().encode(userId),
+            name: userId,
+            displayName: 'Casa GM'
+          },
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -7 },
+            { type: 'public-key', alg: -257 }
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'required',
+            residentKey: 'preferred'
+          },
+          timeout: 60000
+        }
+      });
+      const id = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
+      localStorage.setItem(this.KEY, id);
+      return true;
+    } catch (e) {
+      console.log('Face ID registration cancelled', e);
+      return false;
+    }
+  },
+
+  async verify() {
+    const b64 = localStorage.getItem(this.KEY);
+    if (!b64) return false;
+    try {
+      const credId = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const result = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ type: 'public-key', id: credId }],
+          userVerification: 'required',
+          timeout: 60000
+        }
+      });
+      return !!result;
+    } catch { return false; }
+  },
+
+  clear() { localStorage.removeItem(this.KEY); }
+};
+
 // ── Auth ───────────────────────────────────────────────────────────
 const Auth = {
+  _firstSignIn: false,
+  _userId: null,
+
   init() {
     sb.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
@@ -74,29 +149,67 @@ const Auth = {
           this._showError('This email isn\'t authorized to access Casa GM.');
           return;
         }
+        this._userId = session.user.id;
+        this._firstSignIn = (event === 'SIGNED_IN');
         this._hide();
         await DB.load();
         DB.subscribe();
         App.start();
+        // Offer Face ID setup after first magic link sign-in
+        if (this._firstSignIn && await Biometric.available() && !Biometric.isRegistered()) {
+          setTimeout(() => this._offerFaceId(), 1200);
+        }
       } else {
         this._show();
       }
     });
   },
 
-  _show() {
+  async _show() {
     document.getElementById('lock-screen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
-    // Reset form state
     document.getElementById('auth-form').classList.remove('hidden');
     document.getElementById('auth-sent').classList.add('hidden');
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-email').value = '';
+
+    // Show Face ID button if registered
+    const fidSection = document.getElementById('lock-fid');
+    if (Biometric.isRegistered() && await Biometric.available()) {
+      fidSection.classList.remove('hidden');
+      // Auto-trigger Face ID on app open
+      setTimeout(() => this.unlockWithFaceId(), 400);
+    } else {
+      fidSection.classList.add('hidden');
+    }
   },
 
   _hide() {
     document.getElementById('lock-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
+  },
+
+  async unlockWithFaceId() {
+    const btn = document.getElementById('fid-btn');
+    if (btn) { btn.textContent = 'Verifying…'; btn.disabled = true; }
+
+    const ok = await Biometric.verify();
+    if (!ok) {
+      if (btn) { btn.textContent = '🔐  Use Face ID'; btn.disabled = false; }
+      return;
+    }
+
+    // Face ID passed — try to refresh the Supabase session
+    const { data, error } = await sb.auth.refreshSession();
+    if (data?.session) {
+      // onAuthStateChange will fire and open the app
+    } else {
+      // Refresh token expired — need magic link again, clear biometric
+      Biometric.clear();
+      this._showError('Your session expired. Please sign in with email once more.');
+      if (btn) { btn.textContent = '🔐  Use Face ID'; btn.disabled = false; }
+      document.getElementById('lock-fid').classList.add('hidden');
+    }
   },
 
   async sendLink() {
@@ -127,7 +240,36 @@ const Auth = {
     }
   },
 
+  _offerFaceId() {
+    Modal.show({
+      title: 'Enable Face ID?',
+      body: `
+        <div style="text-align:center;padding:4px 0 8px">
+          <div style="font-size:52px;margin-bottom:14px">🔐</div>
+          <p style="color:var(--txt2);font-size:15px;line-height:1.6;margin-bottom:24px">
+            Unlock Casa GM with Face ID next time — no magic link needed.
+          </p>
+          <button class="btn-save" onclick="Auth._registerFaceId()">Enable Face ID</button>
+          <button onclick="Modal.hide()" style="background:none;border:none;color:var(--txt3);font-size:14px;margin-top:14px;display:block;width:100%;cursor:pointer">Not now</button>
+        </div>`
+    });
+  },
+
+  async _registerFaceId() {
+    Modal.hide();
+    const ok = await Biometric.register(this._userId);
+    if (ok) {
+      // Brief confirmation
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:9999';
+      el.textContent = '✓ Face ID enabled';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+  },
+
   async signOut() {
+    Biometric.clear();
     await sb.auth.signOut();
   },
 

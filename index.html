@@ -36,6 +36,14 @@
     <div class="lock-name">Casa GM</div>
     <div class="lock-tagline">Home, managed.</div>
 
+    <!-- Face ID unlock (shown when registered) -->
+    <div id="lock-fid" class="hidden" style="width:100%;margin-bottom:20px">
+      <button id="fid-btn" class="lock-fid-btn" onclick="Auth.unlockWithFaceId()">
+        🔐&nbsp; Use Face ID
+      </button>
+      <div class="lock-divider"><span>or sign in with email</span></div>
+    </div>
+
     <div id="auth-form" class="auth-form">
       <input type="email" id="auth-email" class="fi lock-input"
              placeholder="your@email.com"

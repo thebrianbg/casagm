@@ -767,3 +767,37 @@ a { text-decoration: none; color: inherit; }
 .auth-sent-icon { font-size: 52px; }
 .auth-sent-title { font-size: 20px; font-weight: 700; color: var(--white); }
 .auth-sent-sub { font-size: 14px; color: rgba(255,255,255,.6); line-height: 1.6; }
+
+.lock-fid-btn {
+  width: 100%;
+  padding: 15px;
+  background: rgba(255,255,255,.15);
+  border: 1.5px solid rgba(255,255,255,.25);
+  border-radius: var(--r-md);
+  color: var(--white);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--t);
+  backdrop-filter: blur(8px);
+}
+.lock-fid-btn:active { background: rgba(255,255,255,.22); transform: scale(.98); }
+.lock-fid-btn:disabled { opacity: .6; }
+
+.lock-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 4px;
+  color: rgba(255,255,255,.3);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+.lock-divider::before, .lock-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,.15);
+}
