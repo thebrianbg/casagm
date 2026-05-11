@@ -1,46 +1,14 @@
 /* ================================================================
    Casa GM — app.js
-   All logic: Store, Utils, Modal, Home, Docs, Cal, Tasks, More
+   All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-// ── Store ──────────────────────────────────────────────────────────
-const Store = {
-  ns: 'cgm_',
-  get(k) {
-    try { return JSON.parse(localStorage.getItem(this.ns + k)); }
-    catch { return null; }
-  },
-  set(k, v) { localStorage.setItem(this.ns + k, JSON.stringify(v)); },
-  list(k) { return this.get(k) || []; },
-  add(k, item) {
-    const arr = this.list(k);
-    arr.unshift({ id: uid(), createdAt: new Date().toISOString(), ...item });
-    this.set(k, arr);
-    return arr[0];
-  },
-  update(k, id, patch) {
-    const arr = this.list(k);
-    const i = arr.findIndex(x => x.id === id);
-    if (i > -1) { arr[i] = { ...arr[i], ...patch }; this.set(k, arr); }
-  },
-  remove(k, id) { this.set(k, this.list(k).filter(x => x.id !== id)); },
-  settings() { return this.get('settings') || { name1: 'Brian', name2: 'Sarah', family: 'Guerra' }; },
-  saveSettings(s) { this.set('settings', s); }
-};
-
 // ── Utilities ──────────────────────────────────────────────────────
-function uid() {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Date.now().toString(36) + Math.random().toString(36).slice(2);
-}
-
 function today() { return new Date().toISOString().split('T')[0]; }
 
 function fmtDate(d) {
   if (!d) return '';
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function fmtTime(t) {
@@ -70,6 +38,12 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function settings() {
+  try { return JSON.parse(localStorage.getItem('cgm_settings')) || { name1:'Brian', name2:'Sarah', family:'Guerra' }; }
+  catch { return { name1:'Brian', name2:'Sarah', family:'Guerra' }; }
+}
+function saveSettings(s) { localStorage.setItem('cgm_settings', JSON.stringify(s)); }
+
 // ── Modal / Bottom Sheet ───────────────────────────────────────────
 const Modal = {
   el: null,
@@ -92,20 +66,20 @@ const Modal = {
 // ── Home ───────────────────────────────────────────────────────────
 const Home = {
   render() {
-    const s    = Store.settings();
-    const t    = today();
-    const evts = Store.list('events');
-    const rems = Store.list('reminders');
+    const s   = settings();
+    const t   = today();
+    const evts = DB.list('events');
+    const rems = DB.list('reminders');
 
-    const todayEvts    = evts.filter(e => e.date === t);
-    const overdueRems  = rems.filter(r => !r.done && isOverdue(r.dueDate));
-    const todayRems    = rems.filter(r => !r.done && r.dueDate === t);
-    const upcoming     = evts.filter(e => e.date > t).sort((a,b) => a.date.localeCompare(b.date)).slice(0,3);
-    const openRems     = rems.filter(r => !r.done && (!r.dueDate || r.dueDate >= t))
-                             .sort((a,b) => (a.dueDate||'9999').localeCompare(b.dueDate||'9999')).slice(0,3);
+    const todayEvts   = evts.filter(e => e.date === t);
+    const overdueRems = rems.filter(r => !r.done && isOverdue(r.due_date));
+    const todayRems   = rems.filter(r => !r.done && r.due_date === t);
+    const upcoming    = evts.filter(e => e.date > t).sort((a,b) => a.date.localeCompare(b.date)).slice(0,3);
+    const openRems    = rems.filter(r => !r.done && (!r.due_date || r.due_date >= t))
+                            .sort((a,b) => (a.due_date||'9999').localeCompare(b.due_date||'9999')).slice(0,3);
 
     const now  = new Date();
-    const pName = (p) => p === 'me' ? s.name1 : p === 'partner' ? s.name2 : 'Family';
+    const pName = p => p === 'me' ? s.name1 : p === 'partner' ? s.name2 : 'Family';
 
     document.getElementById('section-home').innerHTML = `
       <div class="home-header">
@@ -153,8 +127,7 @@ const Home = {
                 <div class="li-title">${esc(e.title)}</div>
                 <div class="li-sub">${fmtDate(e.date)}${e.time ? ' · ' + fmtTime(e.time) : ''} · ${esc(pName(e.person))}</div>
               </div>
-            </div>
-          `).join('')}
+            </div>`).join('')}
         </div>` : ''}
 
         ${openRems.length ? `
@@ -165,15 +138,14 @@ const Home = {
           </div>
           ${openRems.map(r => `
             <div class="list-item" onclick="App.go('reminders')">
-              <div class="li-icon" style="background:${isOverdue(r.dueDate)?'#fee2e2':'#d1fae5'}">
-                ${isOverdue(r.dueDate) ? '⚠️' : '✅'}
+              <div class="li-icon" style="background:${isOverdue(r.due_date)?'#fee2e2':'#d1fae5'}">
+                ${isOverdue(r.due_date) ? '⚠️' : '✅'}
               </div>
               <div class="li-info">
                 <div class="li-title">${esc(r.title)}</div>
-                <div class="li-sub">${r.dueDate ? fmtDate(r.dueDate) : 'No due date'}</div>
+                <div class="li-sub">${r.due_date ? fmtDate(r.due_date) : 'No due date'}</div>
               </div>
-            </div>
-          `).join('')}
+            </div>`).join('')}
         </div>` : ''}
 
         ${!upcoming.length && !openRems.length ? `
@@ -183,8 +155,7 @@ const Home = {
           <div class="empty-sub">No upcoming events or open reminders.<br>Add some with the buttons above.</div>
         </div>` : ''}
 
-      </div>
-    `;
+      </div>`;
   }
 };
 
@@ -204,13 +175,13 @@ const Docs = {
   cat: 'all',
   q: '',
   render() {
-    const all  = Store.list('docs');
+    const all  = DB.list('docs');
     const list = all.filter(d => {
       const mc = this.cat === 'all' || d.category === this.cat;
       const mq = !this.q || d.name.toLowerCase().includes(this.q.toLowerCase());
       return mc && mq;
     });
-    const cat = (id) => CATS.find(c => c.id === id) || CATS[CATS.length-1];
+    const cat = id => CATS.find(c => c.id === id) || CATS[CATS.length-1];
 
     document.getElementById('section-docs').innerHTML = `
       <div class="section-header">
@@ -233,7 +204,7 @@ const Docs = {
               <div class="doc-icon" style="background:${catColor(d.category)}18">${c.emoji}</div>
               <div class="doc-info">
                 <div class="doc-name">${esc(d.name)}</div>
-                <div class="doc-meta">${c.label} · ${new Date(d.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+                <div class="doc-meta">${c.label} · ${new Date(d.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
               </div>
               <div class="doc-chevron">›</div>
             </div>`;
@@ -243,18 +214,17 @@ const Docs = {
             <div class="empty-title">${all.length ? 'No results' : 'No documents yet'}</div>
             <div class="empty-sub">${all.length ? 'Try a different filter.' : 'Tap ＋ to add a link or upload a file.'}</div>
           </div>`}
-      </div>
-    `;
+      </div>`;
   },
   search(v) { this.q = v; this.render(); },
   setCat(c)  { this.cat = c; this.render(); },
   open(id) {
-    const d = Store.list('docs').find(x => x.id === id);
+    const d = DB.list('docs').find(x => x.id === id);
     if (!d) return;
     if (d.type === 'link' && d.url) { window.open(d.url, '_blank'); return; }
-    if (d.type === 'file' && d.fileData) {
+    if (d.type === 'file' && d.file_data) {
       const w = window.open();
-      w.document.write(`<iframe src="${d.fileData}" style="width:100%;height:100%;border:none;margin:0"></iframe>`);
+      w.document.write(`<iframe src="${d.file_data}" style="width:100%;height:100%;border:none;margin:0"></iframe>`);
       return;
     }
     Modal.show({
@@ -263,14 +233,14 @@ const Docs = {
         <div class="fg">
           <div><strong>Category:</strong> ${esc(d.category)}</div>
           ${d.notes ? `<div><strong>Notes:</strong> ${esc(d.notes)}</div>` : ''}
-          <div><strong>Added:</strong> ${new Date(d.createdAt).toLocaleDateString()}</div>
+          <div><strong>Added:</strong> ${new Date(d.created_at).toLocaleDateString()}</div>
         </div>
         <button class="btn-save btn-danger mt8" onclick="Docs.del('${id}')">Delete Document</button>`
     });
   },
-  del(id) {
+  async del(id) {
     if (!confirm('Delete this document?')) return;
-    Store.remove('docs', id);
+    await DB.remove('docs', id);
     Modal.hide();
     this.render();
   },
@@ -302,7 +272,7 @@ const Docs = {
         <div class="fg hidden" id="d-file-wrap">
           <label class="fl">File</label>
           <input type="file" class="fi" id="d-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
-          <div class="hint mt4">Stored locally on this device. PDF, image, or Word doc.</div>
+          <div class="hint mt4">Stored in the cloud. PDF, image, or Word doc.</div>
         </div>
         <div class="fg">
           <label class="fl">Notes (optional)</label>
@@ -316,25 +286,27 @@ const Docs = {
     document.getElementById('d-url-wrap').classList.toggle('hidden', t !== 'link');
     document.getElementById('d-file-wrap').classList.toggle('hidden', t !== 'file');
   },
-  save() {
+  async save() {
     const name = document.getElementById('d-name').value.trim();
     const cat  = document.getElementById('d-cat').value;
     const type = document.getElementById('d-type').value;
     const note = document.getElementById('d-notes').value.trim();
     if (!name) return alert('Please enter a document name.');
+
     if (type === 'link') {
       const url = document.getElementById('d-url').value.trim();
-      Store.add('docs', { name, category: cat, type, url, notes: note });
+      await DB.add('docs', { name, category: cat, type, url, notes: note });
       Modal.hide(); this.render();
     } else {
       const file = document.getElementById('d-file').files[0];
       if (!file) return alert('Please choose a file.');
-      const r = new FileReader();
-      r.onload = e => {
-        Store.add('docs', { name, category: cat, type, notes: note, fileData: e.target.result, fileName: file.name, fileType: file.type });
+      const reader = new FileReader();
+      reader.onload = async e => {
+        await DB.add('docs', { name, category: cat, type, notes: note,
+          file_data: e.target.result, file_name: file.name, file_type: file.type });
         Modal.hide(); this.render();
       };
-      r.readAsDataURL(file);
+      reader.readAsDataURL(file);
     }
   }
 };
@@ -344,7 +316,8 @@ const Cal = {
   y: new Date().getFullYear(),
   m: new Date().getMonth(),
   sel: today(),
-  MONTHS: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  MONTHS: ['January','February','March','April','May','June',
+           'July','August','September','October','November','December'],
 
   render() {
     document.getElementById('section-calendar').innerHTML = `
@@ -359,7 +332,7 @@ const Cal = {
   },
 
   _grid() {
-    const events   = Store.list('events');
+    const events   = DB.list('events');
     const t        = today();
     const days     = new Date(this.y, this.m+1, 0).getDate();
     const firstDay = new Date(this.y, this.m, 1).getDay();
@@ -367,9 +340,9 @@ const Cal = {
     let cells = '';
     for (let i = 0; i < firstDay; i++) cells += '<div class="cal-day empty"></div>';
     for (let d = 1; d <= days; d++) {
-      const ds    = `${this.y}-${String(this.m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const evts  = events.filter(e => e.date === ds);
-      const isT   = ds === t;
+      const ds   = `${this.y}-${String(this.m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const evts = events.filter(e => e.date === ds);
+      const isT  = ds === t;
       const isSel = ds === this.sel;
       cells += `
         <div class="cal-day${isT?' today':''}${isSel&&!isT?' selected':''}" onclick="Cal.pick('${ds}')">
@@ -390,8 +363,9 @@ const Cal = {
   },
 
   _dayEvents() {
-    const s     = Store.settings();
-    const evts  = Store.list('events').filter(e => e.date === this.sel).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+    const s    = settings();
+    const evts = DB.list('events').filter(e => e.date === this.sel)
+                  .sort((a,b) => (a.time||'').localeCompare(b.time||''));
     const label = this.sel === today() ? 'Today' : fmtDate(this.sel);
     const pName = p => p === 'me' ? s.name1 : p === 'partner' ? s.name2 : 'Family';
 
@@ -408,7 +382,7 @@ const Cal = {
           <div class="event-bar" style="background:${personColor(e.person)}"></div>
           <div class="event-info">
             <div class="event-title">${esc(e.title)}</div>
-            <div class="event-meta">${e.allDay ? 'All day' : e.time ? fmtTime(e.time) : ''} · ${esc(pName(e.person))}${e.location ? ' · 📍' + esc(e.location) : ''}</div>
+            <div class="event-meta">${e.all_day ? 'All day' : e.time ? fmtTime(e.time) : ''} · ${esc(pName(e.person))}${e.location ? ' · 📍' + esc(e.location) : ''}</div>
           </div>
           <button class="event-del" onclick="Cal.del('${e.id}')">×</button>
         </div>`).join('')}`;
@@ -418,19 +392,17 @@ const Cal = {
     this.sel = ds;
     document.getElementById('cal-day-card').innerHTML = this._dayEvents();
     document.querySelectorAll('.cal-day').forEach(el => {
-      const onclick = el.getAttribute('onclick') || '';
-      const isThis  = onclick.includes(`'${ds}'`);
+      const isThis  = (el.getAttribute('onclick') || '').includes(`'${ds}'`);
       const isToday = el.classList.contains('today');
       el.classList.toggle('selected', isThis && !isToday);
     });
   },
   prev() { this.m === 0 ? (this.m=11, this.y--) : this.m--; this.render(); },
   next() { this.m === 11 ? (this.m=0, this.y++) : this.m++; this.render(); },
-  del(id) { Store.remove('events', id); this.render(); Home.render(); },
+  async del(id) { await DB.remove('events', id); this.render(); Home.render(); },
 
-  addModal(preset) {
-    const s = Store.settings();
-    const d = preset || this.sel || today();
+  addModal() {
+    const s = settings();
     Modal.show({
       title: 'Add Event',
       body: `
@@ -440,7 +412,7 @@ const Cal = {
         </div>
         <div class="fg">
           <label class="fl">Date</label>
-          <input type="date" class="fi" id="e-date" value="${d}" />
+          <input type="date" class="fi" id="e-date" value="${this.sel || today()}" />
         </div>
         <div class="fg">
           <label class="fl">All day?</label>
@@ -473,16 +445,17 @@ const Cal = {
     });
   },
   _timeToggle() {
-    document.getElementById('e-time-wrap').classList.toggle('hidden', document.getElementById('e-allday').value === '1');
+    document.getElementById('e-time-wrap').classList.toggle('hidden',
+      document.getElementById('e-allday').value === '1');
   },
-  save() {
-    const title = document.getElementById('e-title').value.trim();
-    const date  = document.getElementById('e-date').value;
+  async save() {
+    const title  = document.getElementById('e-title').value.trim();
+    const date   = document.getElementById('e-date').value;
     const allDay = document.getElementById('e-allday').value === '1';
     if (!title) return alert('Please enter an event title.');
     if (!date)  return alert('Please pick a date.');
-    Store.add('events', {
-      title, date, allDay,
+    await DB.add('events', {
+      title, date, all_day: allDay,
       time:     allDay ? null : document.getElementById('e-time').value,
       person:   document.getElementById('e-person').value,
       location: document.getElementById('e-loc').value.trim(),
@@ -501,18 +474,18 @@ const Cal = {
 const Tasks = {
   showDone: false,
   render() {
-    const s    = Store.settings();
+    const s    = settings();
     const t    = today();
-    const all  = Store.list('reminders');
+    const all  = DB.list('reminders');
     const open = all.filter(r => !r.done);
     const done = all.filter(r =>  r.done);
-    const overdue  = open.filter(r => isOverdue(r.dueDate));
-    const dueToday = open.filter(r => r.dueDate === t);
-    const upcoming = open.filter(r => !r.dueDate || r.dueDate > t);
+    const overdue  = open.filter(r => isOverdue(r.due_date));
+    const dueToday = open.filter(r => r.due_date === t);
+    const upcoming = open.filter(r => !r.due_date || r.due_date > t);
     const pName = p => p === 'me' ? s.name1 : p === 'partner' ? s.name2 : 'Both';
 
-    const renderItem = r => {
-      const od   = isOverdue(r.dueDate) && !r.done;
+    const item = r => {
+      const od   = isOverdue(r.due_date) && !r.done;
       const name = r.assignee ? pName(r.assignee) : '';
       return `
         <div class="rem-item${r.done?' done':''}">
@@ -520,7 +493,7 @@ const Tasks = {
           <div class="rem-info">
             <div class="rem-title">${esc(r.title)}</div>
             <div class="rem-meta">
-              ${r.dueDate ? `<span class="rem-tag${od?' overdue':''}">${od?'⚠ ':''}${fmtDate(r.dueDate)}</span>` : ''}
+              ${r.due_date ? `<span class="rem-tag${od?' overdue':''}">${od?'⚠ ':''}${fmtDate(r.due_date)}</span>` : ''}
               ${name ? `<span class="rem-tag">${esc(name)}</span>` : ''}
               ${r.category ? `<span class="rem-tag">${esc(r.category)}</span>` : ''}
             </div>
@@ -535,9 +508,9 @@ const Tasks = {
         <button class="header-btn" onclick="Tasks.addModal()">＋</button>
       </div>
       <div class="section-content">
-        ${overdue.length ? `<div><div class="rem-section-title" style="color:var(--red)">⚠ Overdue (${overdue.length})</div>${overdue.map(renderItem).join('')}</div>` : ''}
-        ${dueToday.length ? `<div><div class="rem-section-title">Due Today (${dueToday.length})</div>${dueToday.map(renderItem).join('')}</div>` : ''}
-        ${upcoming.length ? `<div><div class="rem-section-title">Upcoming</div>${upcoming.sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')).map(renderItem).join('')}</div>` : ''}
+        ${overdue.length  ? `<div><div class="rem-section-title" style="color:var(--red)">⚠ Overdue (${overdue.length})</div>${overdue.map(item).join('')}</div>` : ''}
+        ${dueToday.length ? `<div><div class="rem-section-title">Due Today (${dueToday.length})</div>${dueToday.map(item).join('')}</div>` : ''}
+        ${upcoming.length ? `<div><div class="rem-section-title">Upcoming</div>${upcoming.sort((a,b)=>(a.due_date||'9999').localeCompare(b.due_date||'9999')).map(item).join('')}</div>` : ''}
         ${!open.length ? `
           <div class="empty">
             <div class="empty-icon">✅</div>
@@ -549,19 +522,19 @@ const Tasks = {
             <button class="toggle-completed" onclick="Tasks._toggleDone()">
               ${this.showDone ? '▾' : '▸'} Completed (${done.length})
             </button>
-            ${this.showDone ? done.map(renderItem).join('') : ''}
+            ${this.showDone ? done.map(item).join('') : ''}
           </div>` : ''}
       </div>`;
   },
-  toggle(id) {
-    const r = Store.list('reminders').find(x => x.id === id);
-    if (r) Store.update('reminders', id, { done: !r.done, doneAt: !r.done ? new Date().toISOString() : null });
+  async toggle(id) {
+    const r = DB.list('reminders').find(x => x.id === id);
+    if (r) await DB.update('reminders', id, { done: !r.done, done_at: !r.done ? new Date().toISOString() : null });
     this.render(); Home.render();
   },
-  del(id) { Store.remove('reminders', id); this.render(); Home.render(); },
+  async del(id) { await DB.remove('reminders', id); this.render(); Home.render(); },
   _toggleDone() { this.showDone = !this.showDone; this.render(); },
   addModal() {
-    const s = Store.settings();
+    const s = settings();
     Modal.show({
       title: 'Add Reminder',
       body: `
@@ -592,12 +565,12 @@ const Tasks = {
         <button class="btn-save" onclick="Tasks.save()">Add Reminder</button>`
     });
   },
-  save() {
+  async save() {
     const title = document.getElementById('r-title').value.trim();
     if (!title) return alert('Please enter a reminder.');
-    Store.add('reminders', {
+    await DB.add('reminders', {
       title,
-      dueDate:  document.getElementById('r-due').value || null,
+      due_date: document.getElementById('r-due').value || null,
       assignee: document.getElementById('r-who').value,
       category: document.getElementById('r-cat').value,
       done: false
@@ -609,7 +582,7 @@ const Tasks = {
 // ── More / Settings ────────────────────────────────────────────────
 const More = {
   render() {
-    const s = Store.settings();
+    const s = settings();
     document.getElementById('section-more').innerHTML = `
       <div class="section-header"><h1>More</h1></div>
       <div class="section-content">
@@ -628,10 +601,9 @@ const More = {
             <div class="set-value">Casa ${esc(s.family)}</div>
             <div class="set-chevron">›</div>
           </div>
-          <div class="set-item" onclick="More.exportData()">
-            <div class="set-icon">💾</div>
-            <div class="set-label">Export Data</div>
-            <div class="set-value">JSON backup</div>
+          <div class="set-item" onclick="Auth.signOut()">
+            <div class="set-icon">🔒</div>
+            <div class="set-label">Sign Out</div>
             <div class="set-chevron">›</div>
           </div>
         </div>
@@ -644,7 +616,7 @@ const More = {
             {e:'🍽️',n:'Meal Planner',d:'Weekly meal planning'},
             {e:'🏥',n:'Health',d:'Medical records & history'},
             {e:'📸',n:'Photos',d:'Share family memories'},
-            {e:'🔗',n:'Sync',d:'Sync between both phones'},
+            {e:'🔔',n:'Notifications',d:'Reminders to your phone'},
           ].map(x=>`
             <div class="more-card">
               <span class="soon-badge">Soon</span>
@@ -664,7 +636,7 @@ const More = {
       </div>`;
   },
   editMembers() {
-    const s = Store.settings();
+    const s = settings();
     Modal.show({
       title: 'Family Members',
       body: `
@@ -680,14 +652,13 @@ const More = {
     });
   },
   _saveMembers() {
-    const s = Store.settings();
+    const s = settings();
     s.name1 = document.getElementById('s-n1').value.trim() || s.name1;
     s.name2 = document.getElementById('s-n2').value.trim() || s.name2;
-    Store.saveSettings(s);
-    Modal.hide(); this.render();
+    saveSettings(s); Modal.hide(); this.render();
   },
   editFamilyName() {
-    const s = Store.settings();
+    const s = settings();
     Modal.show({
       title: 'Family Name',
       body: `
@@ -700,30 +671,37 @@ const More = {
     });
   },
   _saveFamilyName() {
-    const s = Store.settings();
+    const s = settings();
     s.family = document.getElementById('s-fam').value.trim() || s.family;
-    Store.saveSettings(s);
-    Modal.hide(); this.render(); Home.render();
-  },
-  exportData() {
-    const data = {
-      events:    Store.list('events'),
-      reminders: Store.list('reminders'),
-      docs:      Store.list('docs').map(d => ({ ...d, fileData: d.fileData ? '[file omitted]' : undefined })),
-      settings:  Store.settings(),
-      exported:  new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `casagm-backup-${today()}.json`;
-    a.click();
+    saveSettings(s); Modal.hide(); this.render(); Home.render();
   }
 };
 
 // ── App Controller ─────────────────────────────────────────────────
 const App = {
   cur: 'home',
+
+  // Called on DOMContentLoaded — safe before auth
+  setup() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+    Modal.init();
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => this.go(btn.dataset.s));
+    });
+  },
+
+  // Called after successful auth + DB load
+  start() {
+    this.cur = 'home';
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('section-home').classList.add('active');
+    document.querySelector('.nav-item[data-s="home"]').classList.add('active');
+    Home.render();
+  },
+
   go(section) {
     if (this.cur === section) return;
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -733,21 +711,10 @@ const App = {
     this.cur = section;
     this._render(section);
   },
+
   _render(s) {
     ({ home: () => Home.render(), docs: () => Docs.render(),
        calendar: () => Cal.render(), reminders: () => Tasks.render(),
        more: () => More.render() }[s] || (() => {}))();
-  },
-  init() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
-    Modal.init();
-    document.querySelectorAll('.nav-item').forEach(btn => {
-      btn.addEventListener('click', () => this.go(btn.dataset.s));
-    });
-    Home.render();
   }
 };
-
-document.addEventListener('DOMContentLoaded', () => App.init());

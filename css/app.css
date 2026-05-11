@@ -675,3 +675,95 @@ a { text-decoration: none; color: inherit; }
 .hidden { display: none !important; }
 .mt4 { margin-top: 4px; }
 .mt8 { margin-top: 8px; }
+
+/* ===== Lock Screen ===== */
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 60%, var(--navy-light) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+  padding-top: calc(var(--safe-top) + 24px);
+  padding-bottom: calc(var(--safe-bot) + 24px);
+}
+.lock-inner {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.lock-logo {
+  margin-bottom: 20px;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,.35));
+}
+.lock-name {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: -.5px;
+}
+.lock-tagline {
+  font-size: 14px;
+  color: var(--gold-light);
+  font-style: italic;
+  margin-top: 4px;
+  margin-bottom: 40px;
+}
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lock-input {
+  background: rgba(255,255,255,.12) !important;
+  border-color: rgba(255,255,255,.2) !important;
+  color: var(--white) !important;
+  text-align: center;
+  font-size: 16px !important;
+}
+.lock-input::placeholder { color: rgba(255,255,255,.45) !important; }
+.lock-input:focus {
+  background: rgba(255,255,255,.18) !important;
+  border-color: var(--gold) !important;
+}
+.lock-btn {
+  background: var(--gold) !important;
+  color: var(--navy-dark) !important;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.lock-btn:disabled { opacity: .6; }
+.auth-error {
+  background: rgba(239,68,68,.15);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #fca5a5;
+  text-align: center;
+}
+.auth-hint {
+  font-size: 12px;
+  color: rgba(255,255,255,.4);
+  text-align: center;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.auth-sent {
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.auth-sent-icon { font-size: 52px; }
+.auth-sent-title { font-size: 20px; font-weight: 700; color: var(--white); }
+.auth-sent-sub { font-size: 14px; color: rgba(255,255,255,.6); line-height: 1.6; }

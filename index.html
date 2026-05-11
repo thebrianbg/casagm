@@ -20,31 +20,55 @@
 </head>
 <body>
 
-<div id="app">
+<!-- ── Lock Screen ── -->
+<div id="lock-screen" class="lock-screen">
+  <div class="lock-inner">
+    <div class="lock-logo">
+      <svg width="72" height="72" viewBox="0 0 512 512" style="border-radius:18px">
+        <rect width="512" height="512" fill="#1a2e5a"/>
+        <path d="M256,118 L412,258 L412,412 L100,412 L100,258 Z" fill="#d4a843"/>
+        <path d="M216,412 L216,340 Q216,306 256,306 Q296,306 296,340 L296,412 Z" fill="#1a2e5a"/>
+        <text x="256" y="300" text-anchor="middle" fill="#1a2e5a"
+              font-family="-apple-system,BlinkMacSystemFont,sans-serif"
+              font-weight="900" font-size="80" letter-spacing="-3">GM</text>
+      </svg>
+    </div>
+    <div class="lock-name">Casa GM</div>
+    <div class="lock-tagline">Home, managed.</div>
 
-  <!-- ── Main Content ── -->
+    <div id="auth-form" class="auth-form">
+      <input type="email" id="auth-email" class="fi lock-input"
+             placeholder="your@email.com"
+             onkeydown="if(event.key==='Enter') Auth.sendLink()" />
+      <button id="auth-btn" class="btn-save lock-btn" onclick="Auth.sendLink()">
+        Send Magic Link
+      </button>
+      <div id="auth-error" class="auth-error hidden"></div>
+      <div class="auth-hint">A sign-in link will be emailed to you.<br>No password needed.</div>
+    </div>
+
+    <div id="auth-sent" class="auth-sent hidden">
+      <div class="auth-sent-icon">📬</div>
+      <div class="auth-sent-title">Check your email</div>
+      <div class="auth-sent-sub">Tap the link we sent you to open Casa GM. You can close this tab.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div id="app" class="hidden">
+
+  <!-- Main Content -->
   <main id="main-content">
-
-    <!-- Home / Dashboard -->
     <section class="section active" id="section-home"></section>
-
-    <!-- Documents -->
     <section class="section" id="section-docs"></section>
-
-    <!-- Calendar -->
     <section class="section" id="section-calendar"></section>
-
-    <!-- Reminders -->
     <section class="section" id="section-reminders"></section>
-
-    <!-- More -->
     <section class="section" id="section-more"></section>
-
   </main>
 
-  <!-- ── Bottom Navigation ── -->
+  <!-- Bottom Navigation -->
   <nav class="bottom-nav">
-
     <button class="nav-item active" data-s="home">
       <svg viewBox="0 0 24 24">
         <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/>
@@ -52,18 +76,15 @@
       </svg>
       <span>Home</span>
     </button>
-
     <button class="nav-item" data-s="docs">
       <svg viewBox="0 0 24 24">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
         <polyline points="14 2 14 8 20 8"/>
         <line x1="16" y1="13" x2="8" y2="13"/>
         <line x1="16" y1="17" x2="8" y2="17"/>
-        <polyline points="10 9 9 9 8 9"/>
       </svg>
       <span>Docs</span>
     </button>
-
     <button class="nav-item" data-s="calendar">
       <svg viewBox="0 0 24 24">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -73,7 +94,6 @@
       </svg>
       <span>Calendar</span>
     </button>
-
     <button class="nav-item" data-s="reminders">
       <svg viewBox="0 0 24 24">
         <path d="M9 11l3 3L22 4"/>
@@ -81,7 +101,6 @@
       </svg>
       <span>Reminders</span>
     </button>
-
     <button class="nav-item" data-s="more">
       <svg viewBox="0 0 24 24">
         <circle cx="12" cy="5"  r="1" fill="currentColor" stroke="none"/>
@@ -90,10 +109,9 @@
       </svg>
       <span>More</span>
     </button>
-
   </nav>
 
-  <!-- ── Modal / Bottom Sheet ── -->
+  <!-- Modal / Bottom Sheet -->
   <div id="modal-overlay" class="modal-overlay">
     <div class="bottom-sheet">
       <div class="sheet-handle"></div>
@@ -107,6 +125,10 @@
 
 </div>
 
+<!-- Supabase, then config, auth, app (order matters) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
 <script src="js/app.js"></script>
+<script src="js/auth.js"></script>
 </body>
 </html>
