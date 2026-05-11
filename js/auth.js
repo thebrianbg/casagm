@@ -221,12 +221,9 @@ const Auth = {
     btn.textContent = 'Sending…';
     btn.disabled    = true;
 
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false }
-    });
+    const { error } = await sb.auth.signInWithOtp({ email });
 
-    if (error && !error.message.includes('not found')) {
+    if (error) {
       this._showError(error.message);
       btn.textContent = 'Send Code';
       btn.disabled    = false;
