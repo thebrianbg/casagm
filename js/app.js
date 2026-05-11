@@ -620,6 +620,11 @@ const More = {
           <div class="set-label">Sign Out</div>
           <div class="set-chevron">›</div>
         </div>
+        <div class="set-item" onclick="More._forceRefresh()">
+          <div class="set-icon">🔄</div>
+          <div class="set-label">Check for Updates</div>
+          <div class="set-chevron">›</div>
+        </div>
         <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
           <div style="font-weight:800;color:var(--navy);font-size:16px">Casa GM</div>
           <div style="font-size:12px;color:var(--gold);margin-top:6px;font-weight:600">For Grant &amp; Miles 💛</div>
@@ -647,6 +652,14 @@ const More = {
             : `<button class="btn-save" onclick="Auth._registerFaceId()">Enable Face ID</button>`}
         </div>`
     });
+  },
+  async _forceRefresh() {
+    Modal.hide();
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch(e) { console.error(e); }
+    window.location.reload();
   },
   _disableFaceId() {
     Biometric.clear();
