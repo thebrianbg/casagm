@@ -53,14 +53,14 @@
         <button id="auth-btn" class="btn-save lock-btn" onclick="Auth.sendCode()">
           Send Code
         </button>
-        <div class="auth-hint">We'll email you a 6-digit code.<br>No password needed.</div>
+        <div class="auth-hint">We'll email you an 8-digit code.<br>No password needed.</div>
       </div>
 
       <!-- Step 2: code entry -->
       <div id="auth-step-code" class="hidden">
-        <div class="auth-code-label">Enter the 6-digit code sent to<br><strong id="auth-email-display"></strong></div>
+        <div class="auth-code-label">Enter the 8-digit code sent to<br><strong id="auth-email-display"></strong></div>
         <input type="number" id="auth-code" class="fi lock-input lock-input-code"
-               placeholder="000000" maxlength="6"
+               placeholder="00000000" maxlength="8"
                onkeydown="if(event.key==='Enter') Auth.verifyCode()" />
         <button class="btn-save lock-btn" onclick="Auth.verifyCode()">Verify</button>
         <button onclick="Auth.resetForm()" class="auth-back">← Use a different email</button>
