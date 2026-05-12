@@ -245,6 +245,9 @@ const Auth = {
 
     const ok = await Biometric.verify();
     if (!ok) {
+      // Credential missing from device (e.g. app was reinstalled) — clear and fall back to email
+      Biometric.clear();
+      document.getElementById('lock-fid').classList.add('hidden');
       if (btn) { btn.textContent = '🔐  Use Face ID'; btn.disabled = false; }
       return;
     }
