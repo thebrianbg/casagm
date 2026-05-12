@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.4';
+const APP_VERSION = '2.5';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -732,10 +732,8 @@ const Notifications = {
 
 // ── More / Settings ────────────────────────────────────────────────
 const More = {
-  async showSettings() {
+  showSettings() {
     const s = settings();
-    const notifStatus = await Notifications.status();
-    const notifLabel = { subscribed: 'Enabled', unsubscribed: 'Not enabled', denied: 'Blocked in settings', unsupported: 'Not supported' }[notifStatus];
     Modal.show({
       title: 'Settings',
       body: `
@@ -748,13 +746,12 @@ const More = {
         <div class="set-item" onclick="More.manageFaceId()">
           <div class="set-icon">🔐</div>
           <div class="set-label">Face ID</div>
-          <div class="set-value" id="fid-status">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
+          <div class="set-value">${Biometric.isRegistered() ? 'Enabled' : 'Not set up'}</div>
           <div class="set-chevron">›</div>
         </div>
         <div class="set-item" onclick="More.manageNotifications()">
           <div class="set-icon">🔔</div>
           <div class="set-label">Notifications</div>
-          <div class="set-value" id="notif-status">${notifLabel}</div>
           <div class="set-chevron">›</div>
         </div>
         <div class="set-item" onclick="Auth.signOut()">
