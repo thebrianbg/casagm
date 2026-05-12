@@ -71,7 +71,11 @@ serve(async (req) => {
   const sent = results.filter(r => r.status === 'fulfilled').length;
   const notifTitle = table === 'reminders' ? '📋 New Reminder' : '📅 New Event';
   if (sent > 0) {
-    await supabase.from('notifications').insert({ title: notifTitle, body });
+    await supabase.from('notifications').insert({
+      title: notifTitle, body,
+      record_type: table,
+      record_id: record.id ?? null
+    });
   }
   return new Response(JSON.stringify({ sent }), {
     headers: { 'Content-Type': 'application/json' }

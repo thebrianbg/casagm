@@ -76,7 +76,7 @@ serve(async () => {
 
   const sent = results.filter(r => r.status === 'fulfilled').length;
   if (sent > 0) {
-    await supabase.from('notifications').insert({ title: 'Casa GM', body });
+    await supabase.from('notifications').insert({ title: 'Casa GM', body, record_type: 'reminders' });
   }
   return new Response(JSON.stringify({ sent, total: subscriptions.length }), {
     headers: { 'Content-Type': 'application/json' }

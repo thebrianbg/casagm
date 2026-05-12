@@ -192,8 +192,12 @@ a { text-decoration: none; color: inherit; }
 .notif-item {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
 }
 .notif-item:last-child { border-bottom: none; }
+.notif-item-link { cursor: pointer; }
+.notif-item-link:active { opacity: 0.6; }
 .notif-item-title { font-size: 14px; font-weight: 700; color: var(--txt); }
 .notif-item-body { font-size: 14px; color: var(--txt); margin-top: 2px; }
 .notif-item-time { font-size: 12px; color: var(--txt2); margin-top: 4px; }

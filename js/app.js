@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.7';
+const APP_VERSION = '2.8';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -636,14 +636,23 @@ const NotifInbox = {
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
              ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     };
+    const section = t => t === 'reminders' ? 'reminders' : t === 'events' ? 'calendar' : null;
     Modal.show({
       title: 'Notification History',
-      body: items.map(n => `
-        <div class="notif-item">
-          <div class="notif-item-title">${esc(n.title)}</div>
-          <div class="notif-item-body">${esc(n.body)}</div>
-          <div class="notif-item-time">${fmt(n.created_at)}</div>
-        </div>`).join('')
+      body: items.map(n => {
+        const dest = section(n.record_type);
+        const click = dest ? `onclick="Modal.hide();App.go('${dest}')"` : '';
+        const arrow = dest ? `<span style="color:var(--navy);font-size:16px;margin-left:auto;padding-left:8px">›</span>` : '';
+        return `
+        <div class="notif-item${dest ? ' notif-item-link' : ''}" ${click}>
+          <div style="flex:1;min-width:0">
+            <div class="notif-item-title">${esc(n.title)}</div>
+            <div class="notif-item-body">${esc(n.body)}</div>
+            <div class="notif-item-time">${fmt(n.created_at)}</div>
+          </div>
+          ${arrow}
+        </div>`;
+      }).join('')
     });
   },
 
