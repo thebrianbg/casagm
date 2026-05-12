@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -892,9 +892,18 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => this.go(btn.dataset.s));
     });
-    // Re-render home when iOS restores app from background
+    // On iOS, apps are restored from memory — detect SW change and force reload
+    let _swController = navigator.serviceWorker?.controller || null;
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && this.cur === 'home') Home.render();
+      if (!document.hidden) {
+        const current = navigator.serviceWorker?.controller || null;
+        if (current && _swController && current.scriptURL !== _swController.scriptURL) {
+          window.location.reload();
+          return;
+        }
+        _swController = current;
+        if (this.cur === 'home') Home.render();
+      }
     });
     window.addEventListener('pageshow', e => {
       if (e.persisted && this.cur === 'home') Home.render();
