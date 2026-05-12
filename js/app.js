@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.6';
+const APP_VERSION = '2.7';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -607,14 +607,14 @@ const Tasks = {
 const NotifInbox = {
   async show() {
     Modal.show({ title: 'Notification History', body: '<div style="text-align:center;padding:20px;color:var(--txt2)">Loading…</div>' });
-    const timeout = new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000));
     let items = [];
     try {
-      const { data } = await Promise.race([
-        sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
-        timeout
-      ]);
-      items = data || [];
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/notifications?select=*&order=created_at.desc&limit=50`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      items = await res.json();
+      if (!Array.isArray(items)) items = [];
     } catch {
       Modal.show({ title: 'Notification History', body: '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Couldn\'t load</div><div class="empty-sub">Check your connection and try again.</div></div>' });
       return;
@@ -650,9 +650,12 @@ const NotifInbox = {
   async checkUnread() {
     try {
       const lastSeen = localStorage.getItem('cgm_notif_seen') || '1970-01-01T00:00:00Z';
-      const q = sb.from('notifications').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen);
-      const { count } = await Promise.race([q, new Promise((_, r) => setTimeout(() => r(new Error('t')), 4000))]);
-      if (count > 0) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/notifications?select=id&created_at=gt.${encodeURIComponent(lastSeen)}&limit=1`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) {
         const btn = document.getElementById('home-bell-btn');
         if (btn && !btn.querySelector('.bell-dot')) {
           const dot = document.createElement('span');
