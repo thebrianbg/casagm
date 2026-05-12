@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.9';
+const APP_VERSION = '3.0';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }

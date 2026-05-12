@@ -30,35 +30,67 @@ const DB = {
     this._c.docs      = d.data || [];
   },
 
-  _timeout(ms) { return new Promise((_, r) => setTimeout(() => r(new Error('Request timed out — please try again.')), ms)); },
+  async _token() {
+    try {
+      const raw = localStorage.getItem('casagm-auth');
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (s?.expires_at && Date.now() / 1000 < s.expires_at - 30) return s.access_token;
+      // Token expired — refresh directly without JS client
+      if (s?.refresh_token) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: s.refresh_token })
+        });
+        if (res.ok) {
+          const ns = await res.json();
+          localStorage.setItem('casagm-auth', JSON.stringify(ns));
+          return ns.access_token;
+        }
+      }
+    } catch {}
+    return null;
+  },
+
+  async _req(method, t, body, id) {
+    const token = await this._token();
+    if (!token) throw new Error('Session expired — please sign out and sign in again.');
+    const url = `${SUPABASE_URL}/rest/v1/${t}${id ? `?id=eq.${id}` : ''}`;
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Error ${res.status}`);
+    }
+    return method === 'DELETE' ? null : res.json();
+  },
 
   async add(t, item) {
-    const { data, error } = await Promise.race([
-      sb.from(t).insert(item).select().single(),
-      this._timeout(8000)
-    ]);
-    if (error) { console.error(error); throw error; }
+    const rows = await this._req('POST', t, item);
+    const data = Array.isArray(rows) ? rows[0] : rows;
     this._c[t].unshift(data);
     return data;
   },
 
   async update(t, id, patch) {
-    const { data, error } = await Promise.race([
-      sb.from(t).update(patch).eq('id', id).select().single(),
-      this._timeout(8000)
-    ]);
-    if (error) { console.error(error); throw error; }
+    const rows = await this._req('PATCH', t, patch, id);
+    const data = Array.isArray(rows) ? rows[0] : rows;
     const i = this._c[t].findIndex(x => x.id === id);
     if (i > -1) this._c[t][i] = data;
     return data;
   },
 
   async remove(t, id) {
-    const { error } = await Promise.race([
-      sb.from(t).delete().eq('id', id),
-      this._timeout(8000)
-    ]);
-    if (error) { console.error(error); throw error; }
+    await this._req('DELETE', t, null, id);
     this._c[t] = this._c[t].filter(x => x.id !== id);
   },
 
