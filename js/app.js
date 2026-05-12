@@ -151,7 +151,10 @@ const Home = {
       </div>`;
 
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const allClear = !todayItems.length && !weekItems.length && !monthItems.length;
+    const nodateItems = rems
+      .filter(r => !r.done && !r.due_date)
+      .map(mkRem);
+    const allClear = !todayItems.length && !weekItems.length && !monthItems.length && !nodateItems.length;
 
     document.getElementById('section-home').innerHTML = `
       <div class="home-bar">
@@ -181,6 +184,7 @@ const Home = {
         ${group('Today', todayItems)}
         ${group('This Week', weekItems)}
         ${group('This Month', monthItems)}
+        ${group('No Due Date', nodateItems)}
         ${allClear ? `
           <div class="empty">
             <div class="empty-icon">🏡</div>
