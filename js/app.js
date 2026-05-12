@@ -3,6 +3,8 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
+const APP_VERSION = '2.2';
+
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
 
@@ -607,7 +609,10 @@ const Notifications = {
     if (Notification.permission === 'denied') return 'denied';
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    return sub ? 'subscribed' : 'unsubscribed';
+    if (!sub) return 'unsubscribed';
+    // Check Supabase has the record too
+    const { data } = await sb.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).maybeSingle();
+    return data ? 'subscribed' : 'unsubscribed';
   },
 
   async subscribe() {
@@ -615,20 +620,25 @@ const Notifications = {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return false;
 
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: this._urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-    });
+    // Get existing subscription or create new one
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this._urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
 
-    const { endpoint, keys } = sub.toJSON();
+    const json = sub.toJSON();
+    const { data: { user } } = await sb.auth.getUser();
     const { error } = await sb.from('push_subscriptions').upsert({
-      user_id: (await sb.auth.getUser()).data.user.id,
-      endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth
+      user_id: user.id,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth
     }, { onConflict: 'user_id,endpoint' });
 
-    if (error) { console.error(error); return false; }
+    if (error) { console.error('Push subscribe error:', error); return false; }
     return true;
   },
 
@@ -689,6 +699,7 @@ const More = {
         <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
           <div style="font-weight:800;color:var(--navy);font-size:16px">Casa GM</div>
           <div style="font-size:12px;color:var(--gold);margin-top:6px;font-weight:600">For Grant &amp; Miles 💛</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:4px">v${APP_VERSION}</div>
         </div>`
     });
   },
