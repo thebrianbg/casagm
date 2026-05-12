@@ -16,8 +16,9 @@ A Progressive Web App (PWA) installable on two iPhones as a home-screen app. It'
 | Layer | Choice | Notes |
 |---|---|---|
 | Frontend | Vanilla HTML/CSS/JS | No framework, no build step |
-| Auth | Supabase Auth | Magic link — no passwords |
+| Auth | Supabase Auth | Magic link OTP — no passwords |
 | Database | Supabase (Postgres) | Real-time sync via postgres_changes |
+| Push notifications | Web Push API + VAPID | Edge functions send via npm:web-push |
 | Hosting | Vercel | Auto-deploys on git push |
 | Repo | GitHub — thebrianbg/casagm | |
 
@@ -27,21 +28,25 @@ A Progressive Web App (PWA) installable on two iPhones as a home-screen app. It'
 
 ```
 casagm/
-├── index.html              # App shell — lock screen + all 5 sections + modal
+├── index.html              # App shell — lock screen + all sections + modal
 ├── manifest.json           # PWA manifest
-├── sw.js                   # Service worker (cache-first, offline support)
+├── sw.js                   # Service worker — network-first for JS/CSS, cache-first otherwise
 ├── css/
 │   └── app.css             # All styles — design tokens, layout, components
 ├── js/
-│   ├── config.js           # Supabase URL + anon key + allowed emails (edit this)
+│   ├── config.js           # Supabase URL + anon key + VAPID public key + allowed emails
 │   ├── auth.js             # Supabase client, DB cache, real-time sync, Auth lock screen
-│   └── app.js              # All UI — Home, Docs, Cal, Tasks, More, Modal, App router
-└── icons/
-    ├── icon.svg            # Master icon (navy bg, gold house, GM in door)
-    ├── icon-192.png        # Generated PNG — needed for PWA install
-    ├── icon-512.png        # Generated PNG — needed for PWA install
-    ├── apple-touch-icon.png # 180×180 — needed for iOS home screen
-    └── generate-icons.html # Open in browser to generate the PNGs above
+│   └── app.js              # All UI — Home, Docs, Cal, Tasks, NotifInbox, Modal, App router
+├── icons/
+│   ├── icon.svg            # Master icon (navy bg, gold house, GM in door)
+│   ├── icon-192.png        # Generated PNG — needed for PWA install
+│   ├── icon-512.png        # Generated PNG — needed for PWA install
+│   ├── apple-touch-icon.png # 180×180 — needed for iOS home screen
+│   └── generate-icons.html # Open in browser to generate the PNGs above
+└── supabase/
+    └── functions/
+        ├── notify-reminders/   # Daily digest — cron fires at 9am + 5pm ET
+        └── notify-new-item/    # Real-time — fires via DB webhook on insert
 ```
 
 > **Script load order in index.html matters:**
@@ -78,6 +83,8 @@ git push   # Vercel auto-deploys in ~30s
 
 Vercel URL: check the Vercel dashboard under the `casagm` project.
 
+> **Edge functions** must be redeployed separately via the Supabase dashboard (Edge Functions → function → Code → Edit). The CLI is not installed.
+
 ---
 
 ## Supabase
@@ -89,13 +96,13 @@ Vercel URL: check the Vercel dashboard under the `casagm` project.
 
 ### Tables
 
-| Table | Key columns |
-|---|---|
-| `events` | id, title, date (text YYYY-MM-DD), all_day, time, person (me/partner/family), location, notes |
-| `reminders` | id, title, due_date, assignee (me/partner/both), category, done, done_at |
-| `docs` | id, name, category, type (link/file), url, file_name, file_type, file_data (base64), notes |
-
-All tables have RLS enabled. Policy: any authenticated user has full read/write access (shared family data).
+| Table | Key columns | RLS |
+|---|---|---|
+| `events` | id, title, date (text YYYY-MM-DD), all_day, time, person (me/partner/family), location, notes | auth users only |
+| `reminders` | id, title, due_date, assignee (me/partner/both), category, done, done_at | auth users only |
+| `docs` | id, name, category, type (link/file), url, file_name, file_type, file_data (base64), notes | auth users only |
+| `push_subscriptions` | id, user_id, endpoint, p256dh, auth, created_at | own rows only (`auth.uid() = user_id`) |
+| `notifications` | id, title, body, created_at | public read (`using (true)`), service role inserts |
 
 Real-time enabled via:
 ```sql
@@ -106,9 +113,9 @@ alter publication supabase_realtime add table docs;
 
 ### Auth
 
-- Provider: Email (magic links only)
+- Provider: Email (magic link OTP — 8-digit code)
 - Allowed emails: `brian@brianguerra.com`, `lbofman@gmail.com`
-- Whitelist is enforced in `js/config.js` → `ALLOWED_EMAILS` (client-side check + Supabase signs them out if not on the list)
+- Whitelist enforced in `js/config.js` → `ALLOWED_EMAILS`
 - Redirect URL configured in Supabase → Authentication → URL Configuration
 
 ### Credentials (in js/config.js)
@@ -117,26 +124,68 @@ alter publication supabase_realtime add table docs;
 const SUPABASE_URL = 'https://pezrffldzfjimvngsobx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Shs0StpKkllEweXFKvHXAA_KihOxixI';
 const ALLOWED_EMAILS = ['brian@brianguerra.com', 'lbofman@gmail.com'];
+const VAPID_PUBLIC_KEY = 'BCcVZSSg7f5yJuQIzDCgyEH_V5BAd8YvBF1D6w7H9VRW6_eYvxjuAuR8s34nNHiqx1xXLoCbzjoRxo-6A82GLg4';
 ```
 
-> The publishable key is safe to be public (it's designed for browser use with RLS enabled).
+> The publishable key is safe to be public (designed for browser use with RLS enabled).
+
+### Edge functions
+
+| Function | Trigger | Purpose |
+|---|---|---|
+| `notify-reminders` | pg_cron: 9am + 5pm ET | Sends push for all reminders due today or overdue |
+| `notify-new-item` | DB webhook on INSERT to `events` + `reminders` | Sends push immediately when partner adds an item |
+
+Both functions use `VAPID_PRIVATE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` secrets (set in Supabase → Settings → Edge Functions).
+
+Both functions log sent notifications to the `notifications` table for the in-app inbox.
+
+### Database webhooks
+
+Two webhooks fire `notify-new-item` on INSERT:
+- Table: `reminders` → `https://pezrffldzfjimvngsobx.supabase.co/functions/v1/notify-new-item`
+- Table: `events` → `https://pezrffldzfjimvngsobx.supabase.co/functions/v1/notify-new-item`
 
 ---
 
 ## How auth works
 
 1. User opens app → sees navy lock screen
-2. Enters email → Supabase sends a magic link
-3. Taps link in email → redirected back to app, session established
+2. Enters email → Supabase sends an 8-digit OTP code
+3. Enters code → session established
 4. Email checked against `ALLOWED_EMAILS` → if not on list, signed out immediately
-5. On return visits → session persists; iOS Face ID unlocks the phone/browser which restores the session
-6. Sign out available in More → Settings
+5. On return visits → session persists; iOS Face ID unlocks the phone
+6. Sign out available in gear icon → Settings
 
 ---
 
 ## How real-time sync works
 
-After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for `postgres_changes` on all three tables. When Lindsay adds a reminder on her phone, Brian's phone receives the change and re-renders the current section automatically. No polling, no refresh needed.
+After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for `postgres_changes` on events, reminders, and docs. When Lindsay adds a reminder on her phone, Brian's phone receives the change and re-renders automatically.
+
+---
+
+## How push notifications work
+
+1. User enables notifications in gear → Settings → Notifications
+2. Browser subscription saved to `push_subscriptions` table
+3. Two triggers send pushes:
+   - **Daily digest**: pg_cron calls `notify-reminders` at 9am + 5pm ET
+   - **Real-time**: DB webhook calls `notify-new-item` on every INSERT to events/reminders
+4. All sent notifications are logged to the `notifications` table
+5. Bell icon on home screen shows history; red dot appears for unread
+
+> **iOS quirk**: `navigator.serviceWorker.ready` can hang on iOS PWA. All notification status checks use browser-only APIs (no Supabase queries) and include timeouts. The `notifications` inbox uses plain `fetch` instead of the Supabase JS client to avoid token refresh hangs.
+
+---
+
+## App versioning
+
+`APP_VERSION` constant in `js/app.js` (currently `2.7`). Visible at the bottom of gear → Settings. Bump this with every deploy so users can confirm they're on the latest version.
+
+The service worker is `casagm-v13`. Bump the cache name in `sw.js` when you need to force a full cache eviction.
+
+**Auto-update:** The app detects SW controller changes on `visibilitychange` and auto-reloads. Users should rarely need to manually "Check for Updates" anymore.
 
 ---
 
@@ -158,6 +207,8 @@ After sign-in, `DB.subscribe()` opens a Supabase WebSocket channel listening for
 - `.fi` / `.fl` / `.fg` — form input / label / group
 - `.btn-save` — primary CTA button
 - `.empty` — empty state container
+- `.home-bar` — compact navy header on home screen
+- `.notif-item` — row in notification history sheet
 
 **Person color coding in calendar:**
 - Brian (me): navy `#1a2e5a`
@@ -173,7 +224,7 @@ User-configurable settings (stored in `localStorage` per device, not synced):
 - `name2` — Lindsay's display name (default: "Lindsay")
 - `family` — Family name shown in header (default: "Guerra")
 
-Editable in More → Settings.
+Accessible via gear icon on the home screen.
 
 ---
 
@@ -183,7 +234,9 @@ Editable in More → Settings.
 - `apple-mobile-web-app-capable` — runs fullscreen when installed
 - `apple-mobile-web-app-status-bar-style: black-translucent` — status bar overlays app
 - PNG icons required for iOS home screen (generate from `icons/generate-icons.html`)
-- Service worker caches all static assets for offline use
+- Height set via JS `--vh` variable (`window.innerHeight`) to avoid iOS CSS `100dvh` quirks
+- SW does network-first for JS/CSS so updates are instant on next load
+- If app seems stuck on old code: force-close from iOS app switcher and reopen
 
 **To install on iPhone:** Open Vercel URL in Safari → Share → Add to Home Screen
 
@@ -192,15 +245,14 @@ Editable in More → Settings.
 ## Roadmap
 
 ### Planned
-- [ ] **Google Calendar sync** — Two-way sync via Google Calendar API (browser OAuth). User connects their Google account in More → Settings. Events flow between Casa GM and Google Calendar. Requires Google Cloud project + OAuth client ID. *(Implementation ready to start — see spawned task)*
+- [ ] **Lists** — Groceries, Errands, Fox Chase (NJ home), 100 Barclay (NYC apt), To Discuss
+- [ ] **Google Calendar sync** — Two-way sync via Google Calendar API
 
-### Coming soon (placeholders in More tab)
-- [ ] Groceries — shared shopping lists
+### Coming soon
 - [ ] Budget — track spending together
 - [ ] Meal Planner — weekly meal planning
 - [ ] Health — medical records & history
 - [ ] Photos — share family memories
-- [ ] Push Notifications — reminder alerts to phone
 
 ---
 
@@ -213,6 +265,6 @@ npx serve .
 # Deploy
 git add . && git commit -m "message" && git push
 
-# Check git status
-git log --oneline -5
+# Send a test push notification (requires service role key)
+# Insert reminder, invoke notify-reminders, delete reminder
 ```
