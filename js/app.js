@@ -607,12 +607,15 @@ const Notifications = {
   async status() {
     if (!this._supported()) return 'unsupported';
     if (Notification.permission === 'denied') return 'denied';
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (!sub) return 'unsubscribed';
-    // Check Supabase has the record too
-    const { data } = await sb.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).maybeSingle();
-    return data ? 'subscribed' : 'unsubscribed';
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return 'unsubscribed';
+      const { data } = await sb.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).maybeSingle();
+      return data ? 'subscribed' : 'unsubscribed';
+    } catch {
+      return 'unsubscribed';
+    }
   },
 
   async subscribe() {
