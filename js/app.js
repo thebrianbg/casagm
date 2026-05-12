@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -34,6 +34,14 @@ function catColor(c) {
   const m = { medical:'#ef4444', legal:'#3b82f6', insurance:'#10b981',
                school:'#f59e0b', financial:'#8b5cf6', home:'#06b6d4', other:'#6b7280' };
   return m[c] || '#6b7280';
+}
+
+function toast(msg, ok = false) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:${ok?'#10b981':'#ef4444'};color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:9999;white-space:nowrap;max-width:90vw;text-align:center`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
 }
 
 function esc(s) {
@@ -317,21 +325,25 @@ const Docs = {
     const note = document.getElementById('d-notes').value.trim();
     if (!name) return alert('Please enter a document name.');
 
-    if (type === 'link') {
-      const url = document.getElementById('d-url').value.trim();
-      await DB.add('docs', { name, category: cat, type, url, notes: note });
-      Modal.hide(); this.render();
-    } else {
-      const file = document.getElementById('d-file').files[0];
-      if (!file) return alert('Please choose a file.');
-      const reader = new FileReader();
-      reader.onload = async e => {
-        await DB.add('docs', { name, category: cat, type, notes: note,
-          file_data: e.target.result, file_name: file.name, file_type: file.type });
+    try {
+      if (type === 'link') {
+        const url = document.getElementById('d-url').value.trim();
+        await DB.add('docs', { name, category: cat, type, url, notes: note });
         Modal.hide(); this.render();
-      };
-      reader.readAsDataURL(file);
-    }
+      } else {
+        const file = document.getElementById('d-file').files[0];
+        if (!file) return alert('Please choose a file.');
+        const reader = new FileReader();
+        reader.onload = async e => {
+          try {
+            await DB.add('docs', { name, category: cat, type, notes: note,
+              file_data: e.target.result, file_name: file.name, file_type: file.type });
+            Modal.hide(); this.render();
+          } catch(e) { toast(e.message || 'Could not save — please try again.'); }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch(e) { toast(e.message || 'Could not save — please try again.'); }
   }
 };
 
@@ -478,19 +490,21 @@ const Cal = {
     const allDay = document.getElementById('e-allday').value === '1';
     if (!title) return alert('Please enter an event title.');
     if (!date)  return alert('Please pick a date.');
-    await DB.add('events', {
-      title, date, all_day: allDay,
-      time:     allDay ? null : document.getElementById('e-time').value,
-      person:   document.getElementById('e-person').value,
-      location: document.getElementById('e-loc').value.trim(),
-      notes:    document.getElementById('e-notes').value.trim()
-    });
-    Modal.hide();
-    this.sel = date;
-    this.y = +date.slice(0,4);
-    this.m = +date.slice(5,7) - 1;
-    this.render();
-    Home.render();
+    try {
+      await DB.add('events', {
+        title, date, all_day: allDay,
+        time:     allDay ? null : document.getElementById('e-time').value,
+        person:   document.getElementById('e-person').value,
+        location: document.getElementById('e-loc').value.trim(),
+        notes:    document.getElementById('e-notes').value.trim()
+      });
+      Modal.hide();
+      this.sel = date;
+      this.y = +date.slice(0,4);
+      this.m = +date.slice(5,7) - 1;
+      this.render();
+      Home.render();
+    } catch(e) { toast(e.message || 'Could not save — please try again.'); }
   }
 };
 
@@ -592,14 +606,16 @@ const Tasks = {
   async save() {
     const title = document.getElementById('r-title').value.trim();
     if (!title) return alert('Please enter a reminder.');
-    await DB.add('reminders', {
-      title,
-      due_date: document.getElementById('r-due').value || null,
-      assignee: document.getElementById('r-who').value,
-      category: document.getElementById('r-cat').value,
-      done: false
-    });
-    Modal.hide(); this.render(); Home.render();
+    try {
+      await DB.add('reminders', {
+        title,
+        due_date: document.getElementById('r-due').value || null,
+        assignee: document.getElementById('r-who').value,
+        category: document.getElementById('r-cat').value,
+        done: false
+      });
+      Modal.hide(); this.render(); Home.render();
+    } catch(e) { toast(e.message || 'Could not save — please try again.'); }
   }
 };
 

@@ -30,15 +30,23 @@ const DB = {
     this._c.docs      = d.data || [];
   },
 
+  _timeout(ms) { return new Promise((_, r) => setTimeout(() => r(new Error('Request timed out — please try again.')), ms)); },
+
   async add(t, item) {
-    const { data, error } = await sb.from(t).insert(item).select().single();
+    const { data, error } = await Promise.race([
+      sb.from(t).insert(item).select().single(),
+      this._timeout(8000)
+    ]);
     if (error) { console.error(error); throw error; }
     this._c[t].unshift(data);
     return data;
   },
 
   async update(t, id, patch) {
-    const { data, error } = await sb.from(t).update(patch).eq('id', id).select().single();
+    const { data, error } = await Promise.race([
+      sb.from(t).update(patch).eq('id', id).select().single(),
+      this._timeout(8000)
+    ]);
     if (error) { console.error(error); throw error; }
     const i = this._c[t].findIndex(x => x.id === id);
     if (i > -1) this._c[t][i] = data;
@@ -46,7 +54,10 @@ const DB = {
   },
 
   async remove(t, id) {
-    const { error } = await sb.from(t).delete().eq('id', id);
+    const { error } = await Promise.race([
+      sb.from(t).delete().eq('id', id),
+      this._timeout(8000)
+    ]);
     if (error) { console.error(error); throw error; }
     this._c[t] = this._c[t].filter(x => x.id !== id);
   },
