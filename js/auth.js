@@ -156,6 +156,7 @@ const Auth = {
         await DB.load();      // load data in background
         DB.subscribe();
         Home.render();        // re-render home with real data
+        NotifInbox.checkUnread();
         if (this._firstSignIn && await Biometric.available() && !Biometric.isRegistered()) {
           setTimeout(() => this._offerFaceId(), 1200);
         }

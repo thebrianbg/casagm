@@ -164,6 +164,39 @@ a { text-decoration: none; color: inherit; }
   transition: background var(--t);
 }
 .home-gear:active { background: rgba(255,255,255,.22); }
+.home-bell {
+  background: rgba(255,255,255,.12);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.8);
+  flex-shrink: 0;
+  transition: background var(--t);
+  position: relative;
+}
+.home-bell:active { background: rgba(255,255,255,.22); }
+.bell-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid var(--navy);
+}
+.notif-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item-title { font-size: 14px; font-weight: 700; color: var(--txt); }
+.notif-item-body { font-size: 14px; color: var(--txt); margin-top: 2px; }
+.notif-item-time { font-size: 12px; color: var(--txt2); margin-top: 4px; }
 .home-actions {
   display: flex;
   gap: 10px;

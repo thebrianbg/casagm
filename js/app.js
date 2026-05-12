@@ -153,6 +153,11 @@ const Home = {
         </div>
         <div class="home-bar-right">
           <div class="home-bar-date">${dateStr}</div>
+          <button class="home-bell" id="home-bell-btn" onclick="NotifInbox.show()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+          </button>
           <button class="home-gear" onclick="More.showSettings()">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -595,6 +600,59 @@ const Tasks = {
       done: false
     });
     Modal.hide(); this.render(); Home.render();
+  }
+};
+
+// ── Notification Inbox ────────────────────────────────────────────────
+const NotifInbox = {
+  async show() {
+    Modal.show({ title: 'Notification History', body: '<div style="text-align:center;padding:20px;color:var(--txt2)">Loading…</div>' });
+    const { data } = await sb.from('notifications')
+      .select('*').order('created_at', { ascending: false }).limit(50);
+    const items = data || [];
+    localStorage.setItem('cgm_notif_seen', new Date().toISOString());
+    const btn = document.getElementById('home-bell-btn');
+    if (btn) btn.querySelector('.bell-dot')?.remove();
+    if (!items.length) {
+      Modal.show({ title: 'Notification History', body: `
+        <div class="empty">
+          <div class="empty-icon">🔔</div>
+          <div class="empty-title">No notifications yet</div>
+          <div class="empty-sub">Past notifications will appear here.</div>
+        </div>` });
+      return;
+    }
+    const fmt = iso => {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+             ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    };
+    Modal.show({
+      title: 'Notification History',
+      body: items.map(n => `
+        <div class="notif-item">
+          <div class="notif-item-title">${esc(n.title)}</div>
+          <div class="notif-item-body">${esc(n.body)}</div>
+          <div class="notif-item-time">${fmt(n.created_at)}</div>
+        </div>`).join('')
+    });
+  },
+
+  async checkUnread() {
+    try {
+      const lastSeen = localStorage.getItem('cgm_notif_seen') || '1970-01-01T00:00:00Z';
+      const { count } = await sb.from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .gt('created_at', lastSeen);
+      if (count > 0) {
+        const btn = document.getElementById('home-bell-btn');
+        if (btn && !btn.querySelector('.bell-dot')) {
+          const dot = document.createElement('span');
+          dot.className = 'bell-dot';
+          btn.appendChild(dot);
+        }
+      }
+    } catch { /* ignore */ }
   }
 };
 
