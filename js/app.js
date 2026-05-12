@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -607,9 +607,18 @@ const Tasks = {
 const NotifInbox = {
   async show() {
     Modal.show({ title: 'Notification History', body: '<div style="text-align:center;padding:20px;color:var(--txt2)">Loading…</div>' });
-    const { data } = await sb.from('notifications')
-      .select('*').order('created_at', { ascending: false }).limit(50);
-    const items = data || [];
+    const timeout = new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000));
+    let items = [];
+    try {
+      const { data } = await Promise.race([
+        sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
+        timeout
+      ]);
+      items = data || [];
+    } catch {
+      Modal.show({ title: 'Notification History', body: '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Couldn\'t load</div><div class="empty-sub">Check your connection and try again.</div></div>' });
+      return;
+    }
     localStorage.setItem('cgm_notif_seen', new Date().toISOString());
     const btn = document.getElementById('home-bell-btn');
     if (btn) btn.querySelector('.bell-dot')?.remove();
@@ -666,7 +675,8 @@ const Notifications = {
     if (!this._supported()) return 'unsupported';
     if (Notification.permission === 'denied') return 'denied';
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const timeout = new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000));
+      const reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
       const sub = await reg.pushManager.getSubscription();
       if (!sub) return 'unsubscribed';
       const { data } = await sb.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).maybeSingle();
