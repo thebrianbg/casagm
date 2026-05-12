@@ -20,14 +20,18 @@ const DB = {
   list(t) { return this._c[t] || []; },
 
   async load() {
+    const token = await this._token();
+    if (!token) return;
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` };
+    const base = `${SUPABASE_URL}/rest/v1`;
     const [e, r, d] = await Promise.all([
-      sb.from('events').select('*').order('created_at', { ascending: false }),
-      sb.from('reminders').select('*').order('created_at', { ascending: false }),
-      sb.from('docs').select('*').order('created_at', { ascending: false }),
+      fetch(`${base}/events?select=*&order=created_at.desc`, { headers: h }).then(x => x.json()).catch(() => []),
+      fetch(`${base}/reminders?select=*&order=created_at.desc`, { headers: h }).then(x => x.json()).catch(() => []),
+      fetch(`${base}/docs?select=*&order=created_at.desc`, { headers: h }).then(x => x.json()).catch(() => []),
     ]);
-    this._c.events    = e.data || [];
-    this._c.reminders = r.data || [];
-    this._c.docs      = d.data || [];
+    this._c.events    = Array.isArray(e) ? e : [];
+    this._c.reminders = Array.isArray(r) ? r : [];
+    this._c.docs      = Array.isArray(d) ? d : [];
   },
 
   async _token() {
@@ -106,10 +110,16 @@ const DB = {
   },
 
   async _reload(t) {
-    const { data } = await sb.from(t).select('*').order('created_at', { ascending: false });
-    this._c[t] = data || [];
-    App._render(App.cur);
-    if (App.cur !== 'home') Home.render();
+    try {
+      const token = await this._token();
+      if (!token) return;
+      const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` };
+      const data = await fetch(`${SUPABASE_URL}/rest/v1/${t}?select=*&order=created_at.desc`, { headers: h }).then(x => x.json()).catch(() => null);
+      if (!Array.isArray(data)) return;
+      this._c[t] = data;
+      App._render(App.cur);
+      if (App.cur !== 'home') Home.render();
+    } catch { /* ignore reload failures — next change will retry */ }
   }
 };
 
@@ -239,17 +249,23 @@ const Auth = {
       return;
     }
 
-    // Face ID passed — try to refresh the Supabase session
-    const { data, error } = await sb.auth.refreshSession();
-    if (data?.session) {
-      // onAuthStateChange will fire and open the app
-    } else {
-      // Refresh token expired — need magic link again, clear biometric
-      Biometric.clear();
-      this._showError('Your session expired. Please sign in with email once more.');
-      if (btn) { btn.textContent = '🔐  Use Face ID'; btn.disabled = false; }
-      document.getElementById('lock-fid').classList.add('hidden');
-    }
+    // Face ID passed — restore session from localStorage (avoids hanging refreshSession)
+    try {
+      const raw = localStorage.getItem('casagm-auth');
+      const s = raw ? JSON.parse(raw) : null;
+      if (s?.access_token && s?.refresh_token) {
+        const token = await this._token(); // refreshes if expired
+        if (token) {
+          const { data } = await sb.auth.setSession({ access_token: token, refresh_token: s.refresh_token });
+          if (data?.session) return; // onAuthStateChange fires and opens app
+        }
+      }
+    } catch {}
+    // Session unrecoverable
+    Biometric.clear();
+    this._showError('Your session expired. Please sign in with email once more.');
+    if (btn) { btn.textContent = '🔐  Use Face ID'; btn.disabled = false; }
+    document.getElementById('lock-fid').classList.add('hidden');
   },
 
   async sendCode() {
@@ -265,7 +281,10 @@ const Auth = {
     btn.textContent = 'Sending…';
     btn.disabled    = true;
 
-    const { error } = await sb.auth.signInWithOtp({ email });
+    const { error } = await Promise.race([
+      sb.auth.signInWithOtp({ email }),
+      new Promise((_, r) => setTimeout(() => r(new Error('Request timed out — check your connection.')), 10000))
+    ]).catch(e => ({ error: e }));
 
     if (error) {
       this._showError(error.message);
@@ -285,11 +304,10 @@ const Auth = {
     const code  = document.getElementById('auth-code').value.trim();
     if (!code) return;
 
-    const { error } = await sb.auth.verifyOtp({
-      email: this._pendingEmail,
-      token: code,
-      type:  'email'
-    });
+    const { error } = await Promise.race([
+      sb.auth.verifyOtp({ email: this._pendingEmail, token: code, type: 'email' }),
+      new Promise((_, r) => setTimeout(() => r(new Error('Request timed out — check your connection.')), 10000))
+    ]).catch(e => ({ error: e }));
 
     if (error) {
       this._showError('Invalid code — check your email and try again.');

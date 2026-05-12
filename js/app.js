@@ -3,7 +3,7 @@
    All UI logic. Uses `sb` and `DB` from auth.js (loaded after this).
    ================================================================ */
 
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.1';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -625,9 +625,11 @@ const NotifInbox = {
     Modal.show({ title: 'Notification History', body: '<div style="text-align:center;padding:20px;color:var(--txt2)">Loading…</div>' });
     let items = [];
     try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 6000);
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/notifications?select=*&order=created_at.desc&limit=50`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }, signal: ctrl.signal }
       );
       items = await res.json();
       if (!Array.isArray(items)) items = [];
@@ -675,9 +677,11 @@ const NotifInbox = {
   async checkUnread() {
     try {
       const lastSeen = localStorage.getItem('cgm_notif_seen') || '1970-01-01T00:00:00Z';
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/notifications?select=id&created_at=gt.${encodeURIComponent(lastSeen)}&limit=1`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }, signal: ctrl.signal }
       );
       const rows = await res.json();
       if (Array.isArray(rows) && rows.length > 0) {
@@ -714,39 +718,57 @@ const Notifications = {
   },
 
   async subscribe() {
-    const reg = await navigator.serviceWorker.ready;
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return false;
+    try {
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
+      ]);
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return false;
 
-    // Get existing subscription or create new one
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this._urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this._urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+
+      const json = sub.toJSON();
+      const token = await DB._token();
+      if (!token) return false;
+      const rawSession = JSON.parse(localStorage.getItem('casagm-auth') || '{}');
+      const userId = rawSession.user?.id;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ user_id: userId, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth })
       });
-    }
-
-    const json = sub.toJSON();
-    const { data: { user } } = await sb.auth.getUser();
-    const { error } = await sb.from('push_subscriptions').upsert({
-      user_id: user.id,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth
-    }, { onConflict: 'user_id,endpoint' });
-
-    if (error) { console.error('Push subscribe error:', error); return false; }
-    return true;
+      return res.ok;
+    } catch(e) { console.error('Subscribe error:', e); return false; }
   },
 
   async unsubscribe() {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-      await sub.unsubscribe();
-    }
+    try {
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
+      ]);
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const token = await DB._token();
+        if (token) {
+          await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` }
+          });
+        }
+        await sub.unsubscribe();
+      }
+    } catch(e) { console.error('Unsubscribe error:', e); }
   },
 
   _urlBase64ToUint8Array(base64String) {
@@ -828,21 +850,17 @@ const More = {
 
   async _enableNotifications() {
     Modal.hide();
-    const ok = await Notifications.subscribe();
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:' + (ok ? '#10b981' : '#ef4444') + ';color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:9999;white-space:nowrap';
-    el.textContent = ok ? '✓ Notifications enabled' : '✗ Permission denied';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2500);
-    const statusEl = document.getElementById('notif-status');
-    if (statusEl && ok) statusEl.textContent = 'Enabled';
+    try {
+      const ok = await Notifications.subscribe();
+      toast(ok ? '✓ Notifications enabled' : '✗ Permission denied', ok);
+    } catch { toast('Could not enable notifications — try again.'); }
   },
 
   async _disableNotifications() {
-    await Notifications.unsubscribe();
-    Modal.hide();
-    const statusEl = document.getElementById('notif-status');
-    if (statusEl) statusEl.textContent = 'Not enabled';
+    try {
+      await Notifications.unsubscribe();
+      Modal.hide();
+    } catch { toast('Could not turn off notifications — try again.'); }
   },
   async manageFaceId() {
     const registered = Biometric.isRegistered();
